@@ -5,11 +5,12 @@
 #define LED_ADDR   0xA0110000
 #define LED_OUTPUT 0xA0110004
 
-void delay(){
-  for(volatile int i=0; i<1000000; i++){
-    //delay
-  }
+#define NUM_TICKS 500000
+void delay() {
+   for(volatile int i=0; i<NUM_TICKS; i++){} 
 }
+
+
 
 void blinky_kernel(void*) {
     uint32_t thread_id = blockIdx.x;
@@ -17,8 +18,8 @@ void blinky_kernel(void*) {
     volatile uint32_t* led_output = (volatile uint32_t*)LED_OUTPUT;
     volatile uint32_t* led        = (volatile uint32_t*)LED_ADDR;
 
-    *led_output = 0xF;
-    // abilita output su 4 bit
+    *led_output = 0xF;  // abilita output su 4 bit
+	
     while(1){
       *led ^= (1 << thread_id);        // blinka il led (thread_id == 0)
       delay();

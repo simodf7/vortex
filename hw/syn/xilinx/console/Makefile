@@ -88,11 +88,14 @@ endif
 
 all: build
 
+
+# mod: It's mandatory to propagate new IO addresses also to software side 
+# Without this, the change is visibile only on RTL side, and still vx_printf would write at 0x40!
 $(KERNEL).bin:
 	$(MAKE) -C $(ROOT_DIR)/kernel clean
-	$(MAKE) -C $(ROOT_DIR)/kernel
+	IO_BASE_ADDR=0xA0120000 IO_MPM_ADDR=0xA0120080 IO_END_ADDR=0xA0130000 STACK_BASE_ADDR=0xA008F000 $(MAKE) -C $(ROOT_DIR)/kernel
 	$(MAKE) -C $(ROOT_DIR)/tests/kernel/$(KERNEL) clean
-	STARTUP_ADDR=0xA0080000 STACK_BASE_ADDR=0xA008F000 $(MAKE) -C $(ROOT_DIR)/tests/kernel/$(KERNEL)
+	STARTUP_ADDR=0xA0080000 $(MAKE) -C $(ROOT_DIR)/tests/kernel/$(KERNEL)
 	cp $(ROOT_DIR)/tests/kernel/$(KERNEL)/$(KERNEL).bin $(KERNEL).bin
 
 kernel.bin.coe: $(KERNEL).bin
@@ -135,6 +138,15 @@ run: simulate.tcl done.dcp
 
 open: done.dcp
 	TOOL_DIR=$(SCRIPT_DIR) $(VIVADO) project_1/project_1.xpr &
+
+stage: project_1/sources.txt kernel.bin.coe ip_repo top.xdc
+	@echo "Materiali pronti in $(CURDIR):"
+	@echo "  RTL/lista sorgenti -> project_1/sources.txt (e project_1/src/)"
+	@echo "  IP repo            -> ip_repo/"
+	@echo "  BRAM init          -> kernel.bin.coe"
+	@echo "  Vincoli            -> top.xdc"
+
+
 
 clean:
 	rm -rf project_1 project1.tcl $(KERNEL).bin kernel.bin.coe

@@ -7,6 +7,24 @@ else
 CFLAGS += -march=rv32imaf -mabi=ilp32f
 endif
 
+# Adding CFLAGS if IO addresses are redefined 
+ifdef IO_BASE_ADDR
+CFLAGS += -DIO_BASE_ADDR=$(IO_BASE_ADDR)
+endif
+
+ifdef IO_MPM_ADDR
+CFLAGS += -DIO_MPM_ADDR=$(IO_MPM_ADDR)
+endif
+
+ifdef IO_END_ADDR 
+CFLAGS += -DIO_END_ADDR=$(IO_END_ADDR) 
+endif 
+
+# Adding CFLAGS if STACK_BASE_ADDRESS are redefined 
+ifdef STACK_BASE_ADDR 
+CFLAGS += -DSTACK_BASE_ADDR=$(STACK_BASE_ADDR) 
+endif
+
 INC_DIR := $(VORTEX_HOME)/kernel/include
 SRC_DIR := $(VORTEX_HOME)/kernel/src
 

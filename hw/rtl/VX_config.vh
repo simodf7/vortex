@@ -226,7 +226,9 @@
 
 `endif
 
+`ifndef IO_END_ADDR
 `define IO_END_ADDR     `USER_BASE_ADDR
+`endif
 
 `ifndef LMEM_LOG_SIZE
 `define LMEM_LOG_SIZE   14
