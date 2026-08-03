@@ -25,8 +25,7 @@ set_property -dict [list \
     CONFIG.EN_SAFETY_CKT {true} \
     CONFIG.Enable_32bit_Address {true} \
     CONFIG.Fill_Remaining_Memory_Locations {true} \
-    CONFIG.Load_Init_File {true} \
-    CONFIG.Coe_File {/home/simo/tesi/vortex/build/hw/syn/xilinx/console/kernel.bin.coe} \
+    CONFIG.Load_Init_File {false} \
     CONFIG.Memory_Type {Simple_Dual_Port_RAM} \
     CONFIG.Operating_Mode_A {NO_CHANGE} \
     CONFIG.Read_Width_B {512} \

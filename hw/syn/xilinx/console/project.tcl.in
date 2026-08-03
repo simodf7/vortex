@@ -205,7 +205,12 @@ proc run_implementation {} {
   # Open implemented design 
   open_run impl_1
 
-  report_place_status -file $report_dir/place.rpt
+  if {[llength [info commands report_place_status]]} {
+    report_place_status -file $report_dir/place.rpt
+  } else {
+    report_design_analysis -congestion -file $report_dir/place.rpt
+  }
+
   report_route_status -file $report_dir/route.rpt
 
 

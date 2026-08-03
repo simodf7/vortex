@@ -8,7 +8,7 @@ MAX_JOBS ?= 2
 
 VIVADO := $(XILINX_VIVADO)/bin/vivado
 
-SRC_DIR := $(VORTEX_HOME)/hw/syn/xilinx/soc
+SRC_DIR := $(VORTEX_HOME)/hw/syn/xilinx/console
 
 RTL_DIR := $(VORTEX_HOME)/hw/rtl
 DPI_DIR := $(VORTEX_HOME)/hw/dpi
