@@ -72,8 +72,24 @@ set_property -dict [list \
     CONFIG.C_NUM_OF_PROBES {4} \
   ] [get_bd_cells ila_0]
 
+
 ## ZYNQ ULTRASCALE PS  
-create_bd_cell -type ip -vlnv xilinx.com:ip:zynq_ultra_ps_e:3.5 zynq_ultra_ps_e_0
+# Note: Zynq Ultrascale PS IP 3:5 is available only from Vivado 2023.1 
+# If a lower version than 2023.1 is used, we need to use 3.4 version 
+
+# Note: 3.4 has been introduced in Vivado 2021.1 -> not handled at the moment 
+set vivado_ver [version -short]
+
+# Extract version 
+if {[package vcompare $vivado_ver "2023.1"] >= 0} {
+    # Vivado >= 2023.1
+    create_bd_cell -type ip -vlnv xilinx.com:ip:zynq_ultra_ps_e:3.5 zynq_ultra_ps_e_0
+} else {
+    # Vivado < 2023.1
+    create_bd_cell -type ip -vlnv xilinx.com:ip:zynq_ultra_ps_e:3.4 zynq_ultra_ps_e_0
+}
+
+
 set_property -dict [list \
     CONFIG.PSU_BANK_0_IO_STANDARD {LVCMOS18} \
     CONFIG.PSU_BANK_1_IO_STANDARD {LVCMOS18} \
