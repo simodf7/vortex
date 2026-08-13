@@ -20,11 +20,15 @@ opae:
 xrt:
 	$(MAKE) -C xrt
 
+soc:
+	$(MAKE) -C soc
+
 clean:
 	$(MAKE) -C stub clean
 	$(MAKE) -C simx clean
 	$(MAKE) -C rtlsim clean
 	$(MAKE) -C opae clean
 	$(MAKE) -C xrt clean
+	$(MAKE) -C soc clean
 
-.PHONY: all stub simx rtlsim opae xrt clean
+.PHONY: all stub simx rtlsim opae xrt soc clean 
