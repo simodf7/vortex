@@ -67,9 +67,8 @@ CFLAGS += $(CONFIGS)
 CFLAGS += $(RTL_INCLUDE)
 CFLAGS += -DEXT_F_DISABLE
 
-# update memory layout for 2MB RAM
-CFLAGS += -DSTARTUP_ADDR=64\'hA0080000
-CFLAGS += -DSTACK_BASE_ADDR=64\'hA008F000
+CFLAGS += -DSTARTUP_ADDR=64\'hA0000000
+CFLAGS += -DSTACK_BASE_ADDR=64\'hA0040000
 
 # control RTL debug tracing states
 DBG_TRACE_FLAGS += -DDBG_TRACE_PIPELINE
@@ -93,9 +92,9 @@ all: build
 # Without this, the change is visibile only on RTL side, and still vx_printf would write at 0x40!
 $(KERNEL).bin:
 	$(MAKE) -C $(ROOT_DIR)/kernel clean
-	IO_BASE_ADDR=0xA0120000 IO_MPM_ADDR=0xA0120080 IO_END_ADDR=0xA0130000 STACK_BASE_ADDR=0xA008F000 $(MAKE) -C $(ROOT_DIR)/kernel
+	IO_BASE_ADDR=0xA0120000 IO_MPM_ADDR=0xA0120080 IO_END_ADDR=0xA0130000 STACK_BASE_ADDR=0xA0040000 $(MAKE) -C $(ROOT_DIR)/kernel
 	$(MAKE) -C $(ROOT_DIR)/tests/kernel/$(KERNEL) clean
-	STARTUP_ADDR=0xA0080000 $(MAKE) -C $(ROOT_DIR)/tests/kernel/$(KERNEL)
+	STARTUP_ADDR=0xA0000000 $(MAKE) -C $(ROOT_DIR)/tests/kernel/$(KERNEL)
 	cp $(ROOT_DIR)/tests/kernel/$(KERNEL)/$(KERNEL).bin $(KERNEL).bin
 
 kernel.bin.coe: $(KERNEL).bin
@@ -146,9 +145,20 @@ stage: project_1/sources.txt kernel.bin.coe ip_repo top.xdc
 	@echo "  BRAM init          -> kernel.bin.coe"
 	@echo "  Vincoli            -> top.xdc"
 
-
+host-dev: 
+	$(MAKE) -C $(ROOT_DIR)/kernel clean
+	IO_BASE_ADDR=0xA0120000 IO_MPM_ADDR=0xA00FFF00 IO_END_ADDR=0xA0130000 STACK_BASE_ADDR=0xA0040000 $(MAKE) -C $(ROOT_DIR)/kernel
+	mkdir -p host-dev 
+	$(MAKE) -C $(ROOT_DIR)/runtime/soc clean 
+	STARTUP_ADDR=0xA0000000 STACK_BASE_ADDR=0xA0040000 $(MAKE) -C $(ROOT_DIR)/runtime/soc 
+	cp $(ROOT_DIR)/runtime/libvortex-soc.so host-dev/libvortex-soc.so 	
+	$(MAKE) -C $(ROOT_DIR)/tests/regression/$(KERNEL) clean
+	STARTUP_ADDR=0xA0000000 $(MAKE) -C $(ROOT_DIR)/tests/regression/$(KERNEL)
+	cp $(ROOT_DIR)/tests/regression/$(KERNEL)/$(KERNEL) host-dev/$(KERNEL) 
+	cp $(ROOT_DIR)/tests/regression/$(KERNEL)/kernel.vxbin host-dev/kernel.vxbin 
+	cp $(ROOT_DIR)/tests/regression/$(KERNEL)/kernel.dump host-dev/kernel.dump 
 
 clean:
 	rm -rf project_1 project1.tcl $(KERNEL).bin kernel.bin.coe
 	rm -rf .Xil *.log *.jou *.dcp *.rpt
-
+	rm -rf host-dev
