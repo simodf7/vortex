@@ -12,13 +12,22 @@ CXXFLAGS += -I$(INC_DIR) -I../common -I$(ROOT_DIR)/hw -I$(SIM_DIR)/simx -I$(SW_C
 CXXFLAGS += -DXLEN_$(XLEN)
 CXXFLAGS += $(CONFIGS)
 
+# NEW: Adding CXXFLAGS to have STARTUP and stack base available
+STARTUP_ADDR ?= 0xA0000000
+STACK_BASE_ADDR ?= 0xA0040000
+
+CXXFLAGS += -DSTARTUP_ADDR=$(STARTUP_ADDR) 
+CXXFLAGS += -DSTACK_BASE_ADDR=$(STACK_BASE_ADDR) 
+
 LDFLAGS += -shared
 LDFLAGS += -L$(DESTDIR)
 
+VITIS_BIN := /tools/Xilinx/Vitis/2022.2/gnu/aarch64/lin/aarch64-linux/bin
+
 ifdef HOST_ARCH
 	ifeq ($(HOST_ARCH), AARCH64)
-		CC = /tools/Xilinx/2025.1/Vitis/gnu/aarch64/lin/aarch64-linux/bin/aarch64-linux-elf-gcc
-		CXX = /tools/Xilinx/2025.1/Vitis/gnu/aarch64/lin/aarch64-linux/bin/aarch64-linux-gnu-g++ 
+		CC = $(VITIS_BIN)/aarch64-linux-elf-gcc
+		CXX = $(VITIS_BIN)/aarch64-linux-gnu-g++ 
 	endif
 endif
 
@@ -33,7 +42,7 @@ endif
 
 PROJECT := libvortex-soc.so
 
-.PHONY: all force driver clean-driver clean-runtime clean
+.PHONY: all force driver clean-runtime clean
 
 all: $(DESTDIR)/$(PROJECT)
 
@@ -50,10 +59,7 @@ $(CONFIG_FILE): force
 	  rm $@.tmp; \
 	fi
 
-clean-driver:
-	DESTDIR=$(DESTDIR) $(MAKE) -C clean-lib
-
 clean-runtime:
 	rm -f $(DESTDIR)/$(PROJECT)
 
-clean: clean-driver clean-runtime
+clean: clean-runtime
