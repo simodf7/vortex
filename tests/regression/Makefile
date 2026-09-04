@@ -10,6 +10,7 @@ all:
 	# $(MAKE) -C aes_ctr_benchmark
 	$(MAKE) -C gcm_disabled
 	$(MAKE) -C gcm_enabled
+	$(MAKE) -C dcrtest 
 	$(MAKE) -C dogfood
 	$(MAKE) -C dropout
 	$(MAKE) -C dotproduct
@@ -91,6 +92,7 @@ clean:
 	# $(MAKE) -C aes_ctr_benchmark clean
 	$(MAKE) -C gcm_disabled clean
 	$(MAKE) -C gcm_enabled clean
+	$(MAKE) -C dcrtest clean
 	$(MAKE) -C dogfood clean
 	$(MAKE) -C dropout clean
 	$(MAKE) -C dotproduct clean
