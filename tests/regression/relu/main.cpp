@@ -7,13 +7,21 @@
 
 #define FLOAT_ULP 6
 
+#ifdef TEST
+#define PRINT(x) ((void)0) // NOP 
+#else
+#define PRINT(x) do { std::cout << x << std::endl; } while (false)
+#endif
+
+
+
 #define RT_CHECK(_expr)                                         \
    do {                                                         \
      int _ret = _expr;                                          \
      if (0 == _ret)                                             \
        break;                                                   \
-     printf("Error: '%s' returned %d!\n", #_expr, (int)_ret);   \
-	 cleanup();			                                              \
+     fprintf(stderr, "Error: '%s' returned %d!\n", #_expr, (int)_ret);   \
+	   cleanup();			                                              \
      exit(-1);                                                  \
    } while (false)
 
@@ -34,7 +42,7 @@ public:
   static bool compare(int a, int b, int index, int errors) {
     if (a != b) {
       if (errors < 100) {
-        printf("*** error: [%d] expected=%d, actual=%d\n", index, b, a);
+        fprintf(stderr,"*** error: [%d] expected=%d, actual=%d\n", index, b, a);
       }
       return false;
     }
@@ -61,7 +69,7 @@ public:
     auto d = std::abs(fa.i - fb.i);
     if (d > FLOAT_ULP) {
       if (errors < 100) {
-        printf("*** error: [%d] expected=%f, actual=%f\n", index, b, a);
+        fprintf(stderr,"*** error: [%d] expected=%f, actual=%f\n", index, b, a);
       }
       return false;
     }
@@ -122,30 +130,30 @@ int main(int argc, char *argv[]) {
   std::srand(50);
 
   // open device connection
-  std::cout << "open device connection" << std::endl;
+  PRINT("open device connection");
   RT_CHECK(vx_dev_open(&device));
 
   uint32_t num_points = size;
   uint32_t buf_size = num_points * sizeof(TYPE);
 
-  std::cout << "number of points: " << num_points << std::endl;
-  std::cout << "data type: " << Comparator<TYPE>::type_str() << std::endl;
-  std::cout << "buffer size: " << buf_size << " bytes" << std::endl;
+  PRINT("number of points: " << num_points);
+  PRINT("data type: " << Comparator<TYPE>::type_str());
+  PRINT("buffer size: " << buf_size << " bytes");
 
   kernel_arg.num_points = num_points;
 
   // allocate device memory
-  std::cout << "allocate device memory" << std::endl;
+  PRINT("allocate device memory");
   RT_CHECK(vx_mem_alloc(device, buf_size, VX_MEM_READ, &src0_buffer));
   RT_CHECK(vx_mem_address(src0_buffer, &kernel_arg.src0_addr));
   RT_CHECK(vx_mem_alloc(device, buf_size, VX_MEM_WRITE, &dst_buffer));
   RT_CHECK(vx_mem_address(dst_buffer, &kernel_arg.dst_addr));
 
-  std::cout << "dev_src0=0x" << std::hex << kernel_arg.src0_addr << std::endl;
-  std::cout << "dev_dst=0x" << std::hex << kernel_arg.dst_addr << std::endl;
+  PRINT("dev_src0=0x" << std::hex << kernel_arg.src0_addr);
+  PRINT("dev_dst=0x" << std::hex << kernel_arg.dst_addr);
 
   // allocate host buffers
-  std::cout << "allocate host buffers" << std::endl;
+  PRINT("allocate host buffers");
   std::vector<TYPE> h_src0(num_points);
   std::vector<TYPE> h_dst(num_points);
 
@@ -154,31 +162,31 @@ int main(int argc, char *argv[]) {
   }
 
   // upload source buffer0
-  std::cout << "upload source buffer0" << std::endl;
+  PRINT("upload source buffer0");
   RT_CHECK(vx_copy_to_dev(src0_buffer, h_src0.data(), 0, buf_size));
 
   // Upload kernel binary
-  std::cout << "Upload kernel binary" << std::endl;
+  PRINT("Upload kernel binary");
   RT_CHECK(vx_upload_kernel_file(device, kernel_file, &krnl_buffer));
 
   // upload kernel argument
-  std::cout << "upload kernel argument" << std::endl;
+  PRINT("upload kernel argument");
   RT_CHECK(vx_upload_bytes(device, &kernel_arg, sizeof(kernel_arg_t), &args_buffer));
 
   // start device
-  std::cout << "start device" << std::endl;
+  PRINT("start device");
   RT_CHECK(vx_start(device, krnl_buffer, args_buffer));
 
   // wait for completion
-  std::cout << "wait for completion" << std::endl;
+  PRINT("wait for completion");
   RT_CHECK(vx_ready_wait(device, VX_MAX_TIMEOUT));
 
   // download destination buffer
-  std::cout << "download destination buffer" << std::endl;
+  PRINT("download destination buffer");
   RT_CHECK(vx_copy_from_dev(h_dst.data(), dst_buffer, 0, buf_size));
 
   // verify result
-  std::cout << "verify result" << std::endl;
+  PRINT("verify result");
   int errors = 0;
   for (uint32_t i = 0; i < num_points; ++i) {
     auto ref = (h_src0[i] < 0) ? 0 : h_src0[i];
@@ -188,17 +196,23 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  // cleanup
-  std::cout << "cleanup" << std::endl;
-  cleanup();
-
   if (errors != 0) {
-    std::cout << "Found " << std::dec << errors << " errors!" << std::endl;
-    std::cout << "FAILED!" << std::endl;
-    return 1;
+    PRINT("Found " << std::dec << errors << " errors!");
+    PRINT("FAILED!");
+    cleanup(); 
+    return -1;
   }
 
-  std::cout << "PASSED!" << std::endl;
+  PRINT("PASSED!");
+
+#ifdef TEST
+   // IN case we are in testing, this will be the only value printed on stdout, so we can recover it from bash 
+   uint64_t cycles = 0;
+   if( 0 == vx_kernel_stats(device, &cycles, nullptr)) std::cout << cycles << std::endl;
+#endif
+
+
+  cleanup();
 
   return 0;
 }

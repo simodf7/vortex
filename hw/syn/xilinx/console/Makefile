@@ -145,6 +145,8 @@ stage: project_1/sources.txt kernel.bin.coe ip_repo top.xdc
 	@echo "  BRAM init          -> kernel.bin.coe"
 	@echo "  Vincoli            -> top.xdc"
 
+TEST ?= n
+
 host-dev: 
 	$(MAKE) -C $(ROOT_DIR)/kernel clean
 	IO_BASE_ADDR=0xA0120000 IO_MPM_ADDR=0xA00FFF00 IO_END_ADDR=0xA0130000 STACK_BASE_ADDR=0xA0040000 $(MAKE) -C $(ROOT_DIR)/kernel
@@ -153,7 +155,7 @@ host-dev:
 	STARTUP_ADDR=0xA0000000 STACK_BASE_ADDR=0xA0040000 $(MAKE) -C $(ROOT_DIR)/runtime/soc 
 	cp $(ROOT_DIR)/runtime/libvortex-soc.so host-dev/libvortex-soc.so 	
 	$(MAKE) -C $(ROOT_DIR)/tests/regression/$(KERNEL) clean
-	STARTUP_ADDR=0xA0000000 $(MAKE) -C $(ROOT_DIR)/tests/regression/$(KERNEL)
+	STARTUP_ADDR=0xA0000000 TEST=$(TEST) $(MAKE) -C $(ROOT_DIR)/tests/regression/$(KERNEL)
 	cp $(ROOT_DIR)/tests/regression/$(KERNEL)/$(KERNEL) host-dev/$(KERNEL) 
 	cp $(ROOT_DIR)/tests/regression/$(KERNEL)/kernel.vxbin host-dev/kernel.vxbin 
 	cp $(ROOT_DIR)/tests/regression/$(KERNEL)/kernel.dump host-dev/kernel.dump 

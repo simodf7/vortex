@@ -12,6 +12,12 @@ VX_SRCS := $(SRC_DIR)/kernel.cpp
 STARTUP_ADDR ?= 0xA0000000
 VORTEX_RT_LIB ?= vortex-soc
 
+TEST ?= y 
+
+ifeq ($(TEST), y) 
+       CXXFLAGS += -DTEST
+endif        
+
 HOST_ARCH ?= AARCH64
 VITIS_BIN := /tools/Xilinx/Vitis/2022.2/gnu/aarch64/lin/aarch64-linux/bin
 

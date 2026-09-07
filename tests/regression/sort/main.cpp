@@ -5,13 +5,21 @@
 #include <vector>
 #include "common.h"
 
+
+#ifdef TEST
+#define PRINT(x) ((void)0) // NOP 
+#else
+#define PRINT(x) do { std::cout << x << std::endl; } while (false)
+#endif
+
+
 #define RT_CHECK(_expr)                                         \
    do {                                                         \
      int _ret = _expr;                                          \
      if (0 == _ret)                                             \
        break;                                                   \
-     printf("Error: '%s' returned %d!\n", #_expr, (int)_ret);   \
-	 cleanup();			                                              \
+     fprintf(stderr,"Error: '%s' returned %d!\n", #_expr, (int)_ret);   \
+	   cleanup();			                                              \
      exit(-1);                                                  \
    } while (false)
 
@@ -95,9 +103,9 @@ int main(int argc, char *argv[]) {
   }
 
   std::srand(50);
-
+  
   // open device connection
-  std::cout << "open device connection" << std::endl;
+  PRINT("open device connection");
   RT_CHECK(vx_dev_open(&device));
 
   uint64_t num_cores, num_warps, num_threads;
@@ -109,53 +117,53 @@ int main(int argc, char *argv[]) {
   uint32_t num_points = count * total_threads;
   uint32_t buf_size   = num_points * sizeof(TYPE);
 
-  std::cout << "number of points: " << num_points << std::endl;
-  std::cout << "buffer size: " << buf_size << " bytes" << std::endl;
+  PRINT("number of points: " << num_points);
+  PRINT("buffer size: " << buf_size << " bytes");
 
   kernel_arg.num_points = num_points;
 
   // allocate device memory
-  std::cout << "allocate device memory" << std::endl;
+  PRINT("allocate device memory");
   RT_CHECK(vx_mem_alloc(device, buf_size, VX_MEM_READ, &src_buffer));
   RT_CHECK(vx_mem_address(src_buffer, &kernel_arg.src_addr));
   RT_CHECK(vx_mem_alloc(device, buf_size, VX_MEM_WRITE, &dst_buffer));
   RT_CHECK(vx_mem_address(dst_buffer, &kernel_arg.dst_addr));
 
-  std::cout << "dev_src=0x" << std::hex << kernel_arg.src_addr << std::endl;
-  std::cout << "dev_dst=0x" << std::hex << kernel_arg.dst_addr << std::endl;
+  PRINT("dev_src=0x" << std::hex << kernel_arg.src_addr);
+  PRINT("dev_dst=0x" << std::hex << kernel_arg.dst_addr);
 
   // allocate host buffers
-  std::cout << "allocate host buffers" << std::endl;
+  PRINT("allocate host buffers");
   std::vector<TYPE> h_src;
   std::vector<TYPE> h_dst(num_points);
   gen_src_data(h_src, num_points);
 
   // upload source buffer
-  std::cout << "upload source buffer" << std::endl;
+  PRINT("upload source buffer");
   RT_CHECK(vx_copy_to_dev(src_buffer, h_src.data(), 0, buf_size));
 
   // Upload kernel binary
-  std::cout << "Upload kernel binary" << std::endl;
+  PRINT("Upload kernel binary");
   RT_CHECK(vx_upload_kernel_file(device, kernel_file, &krnl_buffer));
 
   // upload kernel argument
-  std::cout << "upload kernel argument" << std::endl;
+  PRINT("upload kernel argument");
   RT_CHECK(vx_upload_bytes(device, &kernel_arg, sizeof(kernel_arg_t), &args_buffer));
 
   // start device
-  std::cout << "start device" << std::endl;
+  PRINT("start device");
   RT_CHECK(vx_start(device, krnl_buffer, args_buffer));
 
   // wait for completion
-  std::cout << "wait for completion" << std::endl;
+  PRINT("wait for completion");
   RT_CHECK(vx_ready_wait(device, VX_MAX_TIMEOUT));
 
   // download destination buffer
-  std::cout << "download destination buffer" << std::endl;
+  PRINT("download destination buffer");
   RT_CHECK(vx_copy_from_dev(h_dst.data(), dst_buffer, 0, buf_size));
 
   // verify result
-  std::cout << "verify result" << std::endl;
+  PRINT("verify result");
   int errors = 0;
   {
     std::vector<TYPE> h_ref;
@@ -164,25 +172,36 @@ int main(int argc, char *argv[]) {
     for (uint32_t i = 0; i < num_points; ++i) {
       TYPE ref = h_ref[i];
       TYPE cur = h_dst[i];
+
       if (cur != ref) {
-        std::cout << "error at result #" << std::dec << i
-                  << std::hex << ": actual=" << cur << ", expected=" << ref << std::endl;
+        PRINT("error at result #" << std::dec << i
+              << std::hex << ": actual=" << cur << ", expected=" << ref);
         ++errors;
       }
     }
   }
 
-  // cleanup
-  std::cout << "cleanup" << std::endl;
-  cleanup();
 
   if (errors != 0) {
-    std::cout << "Found " << std::dec << errors << " errors!" << std::endl;
-    std::cout << "FAILED!" << std::endl;
-    return errors;
+    PRINT("Found " << std::dec << errors << " errors!");
+    PRINT("FAILED!");
+    cleanup(); 
+    return -1;
   }
 
-  std::cout << "PASSED!" << std::endl;
+  PRINT("PASSED!");
+
+#ifdef TEST
+   // IN case we are in testing, this will be the only value printed on stdout, so we can recover it from bash
+   uint64_t cycles = 0;
+   if( 0 == vx_kernel_stats(device, &cycles, nullptr)) std::cout << cycles << std::endl;
+#endif
+
+
+  cleanup();
+
+
+
 
   return 0;
 }
