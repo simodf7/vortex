@@ -35,9 +35,9 @@ module buffer_manager #(
   wire [INDEX_WIDTH-1:0] q_head; 
 	wire q_full; 
 	wire q_empty; 
-	reg  q_push; 
-  reg  q_pop; 
-	reg  [INDEX_WIDTH-1:0] q_elem_push;  		
+	wire q_push; 
+  wire q_pop; 
+	wire [INDEX_WIDTH-1:0] q_elem_push;  		
 	
 
   // Circular queue
