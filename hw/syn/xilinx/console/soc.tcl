@@ -539,16 +539,60 @@ connect_bd_net [get_bd_ports uart_pl_tx] [get_bd_pins vx_console/uart_tx]
 ###################
 
 
+## VORTEX Address space 
 
-switch $::env(MEM) {
-    "bram" 	 { source bram.tcl   } 
-    "pl_ddr" { source pl_ddr.tcl }
-    "ps_ddr" { source ps_ddr.tcl }
-    default  { source bram.tcl   }
-}
-
+# Mapping BRAM in Vortex address space at 0xA000_0000 - 0xA010_0000 
+assign_bd_address -offset 0xA0000000 -range 1M \
+    -target_address_space [get_bd_addr_spaces Vortex_top/m_axi_mem] \
+    [get_bd_addr_segs axi_bram_ctrl/S_AXI/Mem0] -force
 
 
+# Mapping DCR Vortex registers at 0xA010_0000 - 0xA011_0000 
+assign_bd_address -offset 0xA0100000 -range 64K \
+    -target_address_space [get_bd_addr_spaces Vortex_top/m_axi_mem] \
+    [get_bd_addr_segs DCR_Vortex/S00_AXI/S00_AXI_reg] -force
+
+# Mapping AXI GPIO Registers at 0xA011_0000 - 0xA012_0000 
+assign_bd_address -offset 0xA0110000 -range 64K \
+    -target_address_space [get_bd_addr_spaces Vortex_top/m_axi_mem] \
+    [get_bd_addr_segs axi_gpio/S_AXI/Reg] -force
+
+# ADD: Mapping VX CONSOLE to 0xA012_0000 - 0xA012_0080 
+assign_bd_address -offset 0xA0120000 -range 128 \
+    -target_address_space [get_bd_addr_spaces Vortex_top/m_axi_mem] \
+    [get_bd_addr_segs vx_console/s_axi/reg0] -force
+
+
+
+puts "DEBUG: [get_bd_addr_segs -of_objects [get_bd_addr_spaces Vortex_top/m_axi_mem]]"
+
+## ZYNQ ULTRASCALE PS Address Space  
+
+# Mapping BRAM in PS address space at 0xA000_0000 - 0xA010_0000 
+assign_bd_address -offset 0xA0000000 -range 1M \
+    -target_address_space [get_bd_addr_spaces zynq_ultra_ps_e/Data] \
+    [get_bd_addr_segs axi_bram_ctrl/S_AXI/Mem0] -force
+
+# Mapping DCR Vortex registers at 0xA010_0000 - 0xA011_0000 
+assign_bd_address -offset 0xA0100000 -range 64K \
+    -target_address_space [get_bd_addr_spaces zynq_ultra_ps_e/Data] \
+    [get_bd_addr_segs DCR_Vortex/S00_AXI/S00_AXI_reg] -force
+
+
+# Mapping AXI GPIO reg at 0xA011_0000 to A012_0000 
+assign_bd_address -offset 0xA0110000 -range 64K \
+    -target_address_space [get_bd_addr_spaces zynq_ultra_ps_e/Data] \
+    [get_bd_addr_segs axi_gpio/S_AXI/Reg] -force
+
+
+# ADD: Mapping VX CONSOLE to 0xA012_0000 - 0xA012_0080 
+assign_bd_address -offset 0xA0120000 -range 128 \
+    -target_address_space [get_bd_addr_spaces zynq_ultra_ps_e/Data] \
+    [get_bd_addr_segs vx_console/s_axi/reg0] -force
+
+
+
+puts "DEBUG: [get_bd_addr_segs -of_objects [get_bd_addr_spaces zynq_ultra_ps_e/Data]]"
 
 ############################
 # Validate and save design #

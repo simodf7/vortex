@@ -14,7 +14,7 @@ create_bd_cell -type module -reference Vortex_top Vortex_top
 
 
 ## DCR_VORTEX
-create_bd_cell -type ip -vlnv user.org:user:DCR_Vortex:1.0 DCR_Vortex 
+create_bd_cell -type ip -vlnv user.org:user:DCR_Vortex:2.0 DCR_Vortex 
 
 ## MOD: VX CONSOLE
 create_bd_cell -type ip -vlnv user.org:user:vx_console:2.0 vx_console
@@ -538,13 +538,54 @@ connect_bd_net [get_bd_ports uart_pl_tx] [get_bd_pins vx_console/uart_tx]
 # AXI Address Map #
 ###################
 
+# ADD: we map only the peripherals independent from the specific device 
+# chosen as Vortex Global Memory 
+
+# Addresses depends on the specific device chosen (see bram.mk and pl_ddr.mk) 
+
+## VORTEX address space  
+
+# Mapping DCR Vortex registers 
+assign_bd_address -offset $::env(DCR_ADDR) -range $::env(DCR_SIZE) \
+    -target_address_space [get_bd_addr_spaces Vortex_top/m_axi_mem] \
+    [get_bd_addr_segs DCR_Vortex/s00_axi/reg0] -force
+
+# Mapping AXI GPIO Registers
+assign_bd_address -offset $::env(GPIO_ADDR) -range $::env(GPIO_SIZE) \
+    -target_address_space [get_bd_addr_spaces Vortex_top/m_axi_mem] \
+    [get_bd_addr_segs axi_gpio/S_AXI/Reg] -force
+
+# Mapping VX CONSOLE 
+assign_bd_address -offset $::env(CONSOLE_ADDR) -range $::env(CONSOLE_SIZE) \
+    -target_address_space [get_bd_addr_spaces Vortex_top/m_axi_mem] \
+    [get_bd_addr_segs vx_console/s_axi/reg0] -force
 
 
-switch $::env(MEM) {
+## ZYNQ ULTRASCALE PS address space 
+
+# Mapping DCR Vortex registers
+assign_bd_address -offset $::env(DCR_ADDR) -range $::env(DCR_SIZE) \
+    -target_address_space [get_bd_addr_spaces zynq_ultra_ps_e/Data] \
+    [get_bd_addr_segs DCR_Vortex/s00_axi/reg0] -force
+
+# Mapping AXI GPIO reg 
+assign_bd_address -offset $::env(GPIO_ADDR) -range $::env(GPIO_SIZE) \
+    -target_address_space [get_bd_addr_spaces zynq_ultra_ps_e/Data] \
+    [get_bd_addr_segs axi_gpio/S_AXI/Reg] -force
+
+
+# Mapping VX CONSOLE 
+assign_bd_address -offset $::env(CONSOLE_ADDR) -range $::env(CONSOLE_SIZE) \
+    -target_address_space [get_bd_addr_spaces zynq_ultra_ps_e/Data] \
+    [get_bd_addr_segs vx_console/s_axi/reg0] -force
+
+
+
+switch $::env(GLOBAL_MEM) {
     "bram" 	 { source bram.tcl   } 
     "pl_ddr" { source pl_ddr.tcl }
     "ps_ddr" { source ps_ddr.tcl }
-    default  { source bram.tcl   }
+    default  { source pl_ddr.tcl }
 }
 
 

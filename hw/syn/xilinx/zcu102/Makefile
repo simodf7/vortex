@@ -9,7 +9,7 @@ NCPUS := $(shell lscpu | grep "^Core(s) per socket:" | awk '{print $$4}')
 JOBS ?= $(shell echo $$(( $(NCPUS) > $(MAX_JOBS) ? $(MAX_JOBS) : $(NCPUS) )))
 VIVADO := $(XILINX_VIVADO)/bin/vivado
 
-SRC_DIR := $(VORTEX_HOME)/hw/syn/xilinx/console
+SRC_DIR := $(VORTEX_HOME)/hw/syn/xilinx/zcu102
 RTL_DIR := $(VORTEX_HOME)/hw/rtl
 DPI_DIR := $(VORTEX_HOME)/hw/dpi
 AFU_DIR := $(RTL_DIR)/afu/xrt
@@ -17,26 +17,14 @@ SCRIPT_DIR := $(VORTEX_HOME)/hw/scripts
 
 KERNEL ?= blinky
 
+# ADD: Vortex Hardware configuration file 
 
-### VORTEX HARDWARE CONFIGURATION 
+CONFIG ?= pl_ddr
 
-# default configuration for project
-#CONFIGS ?= -DICACHE_SIZE=2048 -DDCACHE_SIZE=2048 -DLMEM_LOG_SIZE=10 -DNUM_CORES=1 -DNUM_WARPS=1 -DNUM_THREADS=1 -DNUM_CLUSTER=1 -DNUM_SOCKETS=1
-CONFIGS ?= -DL1_DISABLE -DLMEM_DISABLE -DNUM_CORES=1 -DNUM_WARPS=1 -DNUM_THREADS=4 -DNUM_CLUSTER=1 -DNUM_SOCKETS=1
-FPU_IP = 1
-
-
-ifeq ($(XLEN), 64)
-	CONFIGS += -DXLEN_64
-	CONFIGS += -DIO_BASE_ADDR=64\'hA0120000
-	CONFIGS += -DIO_MPM_ADDR=64\'hA0120080
-	CONFIGS += -DIO_END_ADDR=64\'hA0130000
-else 
-	CONFIGS += -DXLEN_32
-	CONFIGS += -DIO_BASE_ADDR=32\'hA0120000
-	CONFIGS += -DIO_MPM_ADDR=32\'hA0120080
-	CONFIGS += -DIO_END_ADDR=32\'hA0130000
-endif
+vortex_config.mk: $(SRC_DIR)/configs/$(CONFIG).json $(SRC_DIR)/gen_mk.py
+	python3 $(SRC_DIR)/gen_mk.py $< -o $@
+		 
+include vortex_config.mk 
 
 #denable DEBUG
 DEBUG ?= 3
@@ -66,12 +54,10 @@ endif
 
 # compilation flags
 CFLAGS += -DNDEBUG -DSYNTHESIS -DVIVADO
-CFLAGS += $(CONFIGS)
+CFLAGS += $(CONFIGS) # (from vortex-config.mk) 
 CFLAGS += $(RTL_INCLUDE)
-CFLAGS += -DEXT_F_DISABLE
+CFLAGS += $(EXT_FLAGS) # (from vortex-config.mk) 
 
-CFLAGS += -DSTARTUP_ADDR=64\'hA0000000
-CFLAGS += -DSTACK_BASE_ADDR=64\'hA0040000
 
 # control RTL debug tracing states
 DBG_TRACE_FLAGS += -DDBG_TRACE_PIPELINE
@@ -90,56 +76,38 @@ endif
 
 all: build
 
-
-# mod: It's mandatory to propagate new IO addresses also to software side 
-# Without this, the change is visibile only on RTL side, and still vx_printf would write at 0x40!
 $(KERNEL).bin:
 	$(MAKE) -C $(ROOT_DIR)/kernel clean
-	IO_BASE_ADDR=0xA0120000 IO_MPM_ADDR=0xA0120080 IO_END_ADDR=0xA0130000 STACK_BASE_ADDR=0xA0040000 $(MAKE) -C $(ROOT_DIR)/kernel
+	$(MAKE) -C $(ROOT_DIR)/kernel CFLAGS+="$(KERN_ADDRESS_FLAGS)" 
 	$(MAKE) -C $(ROOT_DIR)/tests/kernel/$(KERNEL) clean
-	STARTUP_ADDR=0xA0000000 $(MAKE) -C $(ROOT_DIR)/tests/kernel/$(KERNEL)
+	$(MAKE) -C $(ROOT_DIR)/tests/kernel/$(KERNEL) CFLAGS+="$(KERN_ADDRESS_FLAGS)"
 	cp $(ROOT_DIR)/tests/kernel/$(KERNEL)/$(KERNEL).bin $(KERNEL).bin
 
 kernel.bin.coe: $(KERNEL).bin
 	$(SCRIPT_DIR)/bin2coe.py --out=$@ --binfile=8192:$(KERNEL).bin --depth=16384 --wordsize=64 --little_endian
 
-pre_opt_hook.tcl: $(SRC_DIR)/pre_opt_hook.tcl
+
+project.tcl: $(SRC_DIR)/project.tcl.in
+	sed 's|@VORTEX_HOME@|$(VORTEX_HOME)|g; s|@XLEN@|$(XLEN)|g; s|@BUILDDIR@|$(CURDIR)|g' $< > $@
+
+%.tcl: $(SRC_DIR)/%.tcl 
 	cp $< $@
 
-simulate.tcl: $(SRC_DIR)/simulate.tcl
-	cp $< $@
-
-soc_bd.tcl: $(SRC_DIR)/soc_bd.tcl
-	cp $< $@
-
-xsa_gen.tcl: $(SRC_DIR)/xsa_gen.tcl 
-	cp $< $@
-
-top.xdc: $(SRC_DIR)/top.xdc
-	cp $< $@
-
-# tcl to simply create the project and open the bd 
-init_bd.tcl: $(SRC_DIR)/init_bd.tcl
-	cp $< $@
-
-pl_ddr.tcl: $(SRC_DIR)/pl_ddr.tcl
-	cp $< $@
-
-bram.tcl: $(SRC_DIR)/bram.tcl
+%.xdc: $(SRC_DIR)/%.xdc
 	cp $< $@
 
 .PHONY: hardware bd ip_repo host-dev
 ip_repo: 
 	cp -r $(SRC_DIR)/$@ .
 
-gen-sources: project_1/sources.txt
+gen-sources: vortex_config.mk project_1/sources.txt
 project_1/sources.txt:
 	mkdir -p project_1
 	$(SCRIPT_DIR)/gen_sources.sh $(CFLAGS) -P -Cproject_1/src -Oproject_1/sources.txt
 
 build: done.dcp
-done.dcp: project_1/sources.txt kernel.bin.coe project.tcl pre_opt_hook.tcl soc_bd.tcl ip_repo top.xdc
-	MAX_JOBS=$(JOBS) FPU_IP=project_1/ip TOOL_DIR=$(SCRIPT_DIR) $(VIVADO) -mode batch -source project.tcl -tclargs $(DEVICE) project_1/sources.txt
+done.dcp: project_1/sources.txt project.tcl pre_opt_hook.tcl soc_bd.tcl ip_repo top.xdc
+	MAX_JOBS=$(JOBS) FPU_IP=project_1/ip TOOL_DIR=$(SCRIPT_DIR) $(BD_VAR) $(VIVADO) -mode batch -source project.tcl -tclargs $(DEVICE) project_1/sources.txt
 	echo done > done.dcp
 
 hardware: xsa_gen.tcl done.dcp 	
@@ -151,11 +119,9 @@ run: simulate.tcl done.dcp
 open: done.dcp
 	TOOL_DIR=$(SCRIPT_DIR) $(VIVADO) project_1/project_1.xpr &
 
-VORTEX_MEM ?= pl_ddr 
 
-
-bd: project_1/sources.txt init_bd.tcl pre_opt_hook.tcl soc_bd.tcl ip_repo top.xdc $(VORTEX_MEM).tcl 
-	MEM=$(VORTEX_MEM) FPU_IP=project_1/ip TOOL_DIR=$(SCRIPT_DIR) \
+bd: project_1/sources.txt init_bd.tcl pre_opt_hook.tcl soc_bd.tcl ip_repo top.xdc $(GLOBAL_MEM).tcl 
+	$(BD_ENV) FPU_IP=project_1/ip TOOL_DIR=$(SCRIPT_DIR) \
 	  $(VIVADO) -mode gui -source init_bd.tcl -tclargs $(DEVICE) project_1/sources.txt
 
 
@@ -163,18 +129,20 @@ TEST ?= n
 
 host-dev: 
 	$(MAKE) -C $(ROOT_DIR)/kernel clean
-	IO_BASE_ADDR=0xA0120000 IO_MPM_ADDR=0xA00FFF00 IO_END_ADDR=0xA0130000 STACK_BASE_ADDR=0xA0040000 $(MAKE) -C $(ROOT_DIR)/kernel
+	$(MAKE) -C $(ROOT_DIR)/kernel CFLAGS+="$(KERN_ADDRESS_FLAGS)"
 	mkdir -p host-dev 
 	$(MAKE) -C $(ROOT_DIR)/runtime/soc clean 
-	STARTUP_ADDR=0xA0000000 STACK_BASE_ADDR=0xA0040000 $(MAKE) -C $(ROOT_DIR)/runtime/soc 
+	$(MAKE) -C $(ROOT_DIR)/runtime/soc CXXFLAGS+="$(ADDRESS_FLAGS)"
 	cp $(ROOT_DIR)/runtime/libvortex-soc.so host-dev/libvortex-soc.so 	
 	$(MAKE) -C $(ROOT_DIR)/tests/regression/$(KERNEL) clean
-	STARTUP_ADDR=0xA0000000 TEST=$(TEST) $(MAKE) -C $(ROOT_DIR)/tests/regression/$(KERNEL)
+	TEST=$(TEST) $(MAKE) -C $(ROOT_DIR)/tests/regression/$(KERNEL) 
 	cp $(ROOT_DIR)/tests/regression/$(KERNEL)/$(KERNEL) host-dev/$(KERNEL) 
 	cp $(ROOT_DIR)/tests/regression/$(KERNEL)/kernel.vxbin host-dev/kernel.vxbin 
 	cp $(ROOT_DIR)/tests/regression/$(KERNEL)/kernel.dump host-dev/kernel.dump 
 
 clean:
-	rm -rf project_1 project1.tcl $(KERNEL).bin kernel.bin.coe
+	rm -rf project_1 $(KERNEL).bin kernel.bin.coe
 	rm -rf .Xil *.log *.jou *.dcp *.rpt
 	rm -rf host-dev
+	rm -rf *.mk *.tcl *.xdc
+	rm -rf vivado_* ip_repo

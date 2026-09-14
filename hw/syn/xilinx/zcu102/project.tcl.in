@@ -1,0 +1,282 @@
+# Copyright © 2019-2023
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+if { $::argc != 2 } {
+    puts "ERROR: Program \"$::argv0\" requires 2 arguments!\n"
+    puts "Usage: $::argv0 <device_part> <vcs_file>\n"
+    exit
+}
+
+set device_part [lindex $::argv 0]
+set vcs_file [lindex $::argv 1]
+
+set tool_dir $::env(TOOL_DIR)
+set script_dir [ file dirname [ file normalize [ info script ] ] ]
+
+puts "Using device_part=$device_part"
+puts "Using vcs_file=$vcs_file"
+puts "Using tool_dir=$tool_dir"
+puts "Using script_dir=$script_dir"
+
+# Set the number of jobs based on MAX_JOBS environment variable
+if {[info exists ::env(MAX_JOBS)]} {
+  set num_jobs $::env(MAX_JOBS)
+  puts "using num_jobs=$num_jobs"
+  #puts $num_jobs
+} else {
+  set num_jobs 0
+}
+
+proc run_setup {} {
+  
+
+  global device_part vcs_file
+  global tool_dir script_dir
+  global report_dir 
+
+  ## Parsing vcs file ## 
+
+  source "${tool_dir}/parse_vcs_list.tcl"
+  set vlist [parse_vcs_list "${vcs_file}"]
+
+  set vsources_list  [lindex $vlist 0]
+  set vincludes_list [lindex $vlist 1]
+  set vdefines_list  [lindex $vlist 2]
+  
+  
+  ###########################
+  ## Setup Vivado Project  ##
+  ###########################
+  
+  # Create new project 
+  set project_name "project_1"
+  create_project $project_name $project_name -force -part $device_part
+
+  # Set project board part as ZCU_102
+  set_property BOARD_PART xilinx.com:zcu102:part0:3.4 [current_project]
+
+
+  ###################
+  # Verilog defines #
+  ###################
+
+  set_property verilog_define $vdefines_list [current_fileset] 
+
+  ###############
+  # Add sources #
+  ###############
+
+  # RTL 
+  add_files -norecurse -verbose -fileset sources_1 ${vsources_list}
+
+
+  ###################
+  # Add constraints #
+  ###################
+  add_files -norecurse -verbose -fileset constrs_1 "$script_dir/top.xdc" 
+  
+
+  # Import IPS
+
+  set repo_path [file normalize "ip_repo"]
+  set_property ip_repo_paths [list $repo_path] [current_project]
+  update_ip_catalog
+
+  # create fpu ip
+  if {[info exists ::env(FPU_IP)]} {
+    set ip_dir $::env(FPU_IP)
+    set ::argv [list $ip_dir $device_part]
+    set ::argc 2
+    puts $device_part
+    source ${tool_dir}/xilinx_ip_gen.tcl 
+  }
+  
+  # add fpu ip
+  if {[info exists ::env(FPU_IP)]} {
+    set ip_dir $::env(FPU_IP)
+
+    set xci_list [list \
+	    "${ip_dir}/xil_fma/xil_fma.xci" \
+	    "${ip_dir}/xil_fdiv/xil_fdiv.xci" \
+	    "${ip_dir}/xil_fsqrt/xil_fsqrt.xci" \
+    	    "${ip_dir}/xil_fmul/xil_fmul.xci" \
+    	    "${ip_dir}/xil_fadd/xil_fadd.xci"
+    ]
+
+    import_ip $xci_list 
+   }
+
+
+  ######################
+  # Project properties #
+  ######################
+  
+
+  # Reports directory 
+  set project_dir [get_property directory [current_project]]
+  set report_dir $project_dir/reports 
+  exec mkdir -p $report_dir  
+
+  # Creating block diagram 
+  source soc_bd.tcl
+  
+  set_property GENERATE_SYNTH_CHECKPOINT "1" [get_files design_1.bd ]
+  set_property SYNTH_CHECKPOINT_MODE "Hierarchical" [get_files design_1.bd ]
+
+  # Set top level module 
+  set_property top "design_1_wrapper" [current_fileset]
+  
+  # register compilation hooks
+  set_property STEPS.OPT_DESIGN.TCL.PRE ${script_dir}/pre_opt_hook.tcl [get_runs impl_1]
+  
+  # Generate compilation order 
+  update_compile_order -fileset sources_1
+
+
+  ## Simulation 
+
+  set testbench "testbench" 
+  # Import testbench file 
+  import_files -fileset sim_1 $project_dir/src/$testbench.v
+  
+  # Set top level testbench 
+  set_property top testbench [get_filesets sim_1] 
+
+
+}
+
+proc run_synthesis {} {
+  
+  #############
+  # Synthesis #
+  #############
+
+  global num_jobs report_dir
+
+  # Run Synthesis with num_jobs 
+  if {$num_jobs != 0} {
+    launch_runs synth_1 -jobs $num_jobs
+  } else {
+    launch_runs synth_1
+  }
+  wait_on_run synth_1
+
+  # Open synthesized design 
+  open_run synth_1
+
+  # Generate reports
+  report_utilization -file $report_dir/post_synth.utilization.rpt \
+	  -hierarchical -hierarchical_percentages
+
+  # Write checkpoint
+  write_checkpoint -force post_synth.dcp
+}
+
+proc run_implementation {} {
+  
+  ##################
+  # Implementation #
+  ##################
+
+	
+  global num_jobs report_dir
+
+  # ATTENZIONE: MODIFICATO PER AGGIUNGERE ANCHE LA GENERAZIONE DEL BITSTREAM 
+
+  # Run Implementation
+  if {$num_jobs != 0} {
+    launch_runs impl_1 -to_step write_bitstream -jobs $num_jobs 
+  } else {
+    launch_runs impl_1 -to_step write_bitstream 
+  }
+
+  wait_on_run impl_1
+  
+  # Open implemented design 
+  open_run impl_1
+
+  if {[llength [info commands report_place_status]]} {
+    report_place_status -file $report_dir/place.rpt
+  } else {
+    report_design_analysis -congestion -file $report_dir/place.rpt
+  }
+
+  report_route_status -file $report_dir/route.rpt
+
+
+  # Write checkpoints 
+  write_checkpoint -force post_impl.dcp
+}
+
+proc run_reports {} {
+
+  global report_dir	
+	
+  ###########
+  # Reports #
+  ########### 
+
+
+  # Generate reports
+  report_utilization -hierarchical -hierarchical_percentage \
+   -file $report_dir/post_impl.utilization.rpt
+  
+  report_timing_summary -file $report_dir/timing.rpt
+  report_power -file $report_dir/power.rpt
+  report_drc -file $report_dir/drc.rpt 
+
+  ##########
+  ## Done ##
+  ##########
+  
+  puts "    \[REPORT\] prj         [current_project]
+    \[REPORT\] status      [get_property status         [get_runs -regex (synth_1|impl_1)]]
+    \[REPORT\] elapsed     [get_property stats.elapsed  [get_runs -regex (synth_1|impl_1)]]
+    \[REPORT\] wns         [get_property stats.wns      [get_runs impl_1]]
+    \[REPORT\] whs         [get_property stats.whs      [get_runs impl_1]]
+    "
+
+} 
+
+
+###############################################################################
+
+# Start time
+set start_time [clock seconds]
+
+# Check if the post-implementation checkpoint exists
+if { [file exists post_impl.dcp] } {
+  puts "Resuming from post-implementation checkpoint: post_impl.dcp"
+  open_checkpoint post_impl.dcp
+  run_reports
+} elseif { [file exists post_synth.dcp] } {
+  puts "Resuming from post-synthesis checkpoint: post_synth.dcp"
+  open_checkpoint post_synth.dcp
+  run_implementation
+  run_reports
+} else {
+  # Execute full pipeline
+  run_setup
+  run_synthesis
+  run_implementation
+  run_reports
+}
+
+# End time and calculation
+set elapsed_time [expr {[clock seconds] - $start_time}]
+
+# Display elapsed time
+set hours [format "%02d" [expr {$elapsed_time / 3600}]]
+set minutes [format "%02d" [expr {($elapsed_time % 3600) / 60}]]
+set seconds [format "%02d" [expr {$elapsed_time % 60}]]
+puts "Total elapsed time: ${hours}h ${minutes}m ${seconds}s"

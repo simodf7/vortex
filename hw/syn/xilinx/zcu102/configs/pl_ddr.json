@@ -1,0 +1,26 @@
+{
+  "num_threads": 4,
+	"num_cores": 1, 
+	"num_warps": 1, 
+	"num_cluster": 1,
+	"num_sockets": 1,  
+	"xlen": 64, 
+	"stack_log2_size": 13, 
+	"l1_cache": false, 
+	"l1_cache_dim": 2048, 
+	"local_mem": false, 
+	"local_mem_log_size": 10, 
+	"extensions": {
+		"M": true, "F": false, "D": false,
+		"ZICOND": true, "CRYPTO": true,
+		"A": false, "C": false, "V": false, "TCU": false
+	}, 
+	"global_mem": "pl_ddr", 
+	"mem_base": "0x400000000", 
+	"mem_size": "0x20000000",  
+	"kernel_size": "0x20000",
+	"guard_size": "0x1000", 
+	"dcr_size": "0x1000", 
+	"gpio_size": "0x10000",
+	"console_size": "0x1000"    
+}

@@ -60,28 +60,32 @@
 using namespace vortex;
 
 
-// at the moment 
-// Stack size is 128 kb (good for 1 warp and 16 threads ad each thread uses 8 kb of stack) 
-// Kernel size is max 128 kb 
+/* 
+	Notice: Global Memory Map is automatically created by choosing two parameters (json config file) 
+	1) Global Memory base address 
+	2) Global Memory size 
+	
+	Memory map is created	as following from global mem base address: 
+	- 128 kb for kernel and global variable (could be changed in json file) 
+	- 4 kb protection guard between kernel and stack (could be changed in json file) 
+	- Variable area for stack (calculated automatically from number of total threads) 
+	- Heap area (variable because depends on stack and on mpm) 
+	- Last 256 byte * NUM_CORES reserved to MPM perfomance monitor 
 
-// Current Memory Map 
-// Kernel bytes from 0xA000_0000 to 0xA002_0000  (128 kb) 
-// Stack from 0xA002_0000 to 0xA004_0000 (128 kb)
-// Guard from 0xA004_0000 to 0xA004_1000 (check whether to remove)  (4 kb) 
-// Heap from 0xA004_1000 to 0xA00F_FF00 
-// MPM from 0xA00F_FF00 to 0xA010_0000 (256 byte)  (This is good just for 1 core -> 256 byte * NUM_CORES) 
+	Macros available here (passed through CXXFLAGS in hw/syn/xilinx/zcu102) 
+	- HEAP_OFFS: heap offset from global memory base address
+	- HEAP_SIZE
+	- MPM_OFFS
+	- MPM_SIZE
+	- MEM_BASE
+	- MEM_SIZE
+	- STARTUP_ADDR
+	- KERNEL_SIZE
+*/ 
 
-#define BRAM_ADDRESS 0xA0000000
-#define BRAM_SIZE (1 << 20)
-#define STACK_SIZE (1 << 17) // 128 kb  
-#define HEAP_GUARD (1 << 12) // 4 kb 
-#define MPM_SIZE (1 << 8) // 256 byte 
-#define HEAP_BASE (STACK_BASE_ADDR - BRAM_ADDRESS + HEAP_GUARD) 
-#define HEAP_SIZE (BRAM_SIZE - HEAP_BASE - MPM_SIZE) 
 
 #define PAGE_SIZE 4096
 #define BLOCK_SIZE 64  
-
 
 // VX_DEVICE
 
@@ -93,9 +97,10 @@ struct dcr_ioctl {
 };
 
 struct dcr_ioctl data_dcr;
+#define END_BIT 15
+#define START_BIT 14
 #define RESET_BIT 13
 #define VALID_BIT 12
-#define BUSY_BIT 14
 
 #define DCR_WRITE	_IOW('k', 'a', struct dcr_ioctl)
 #define DCR_READ	_IOR('k', 'b', struct dcr_ioctl)
@@ -113,7 +118,7 @@ struct vx_device{
 	int fd = -1; 
 	MemoryAllocator* allocator = nullptr; 
 	vx_buffer* mpm_buffer = nullptr; 
-        uint64_t cycles = 0; 
+  uint64_t cycles = 0; 
 	uint64_t exitcode = 0; 	
 }; 
 
@@ -125,8 +130,8 @@ int vx_dev_open(vx_device_h* hdevice){
     fd = open(DEVICE_FILE_NAME, O_RDWR);
     
     if (fd < 0){
-	fprintf(stderr, "[VORTEX LIB] Cannot open device\n"); 
-	return -1;
+			fprintf(stderr, "[VORTEX LIB] Cannot open device\n"); 
+			return -1;
     }
     
 
@@ -134,10 +139,12 @@ int vx_dev_open(vx_device_h* hdevice){
     device->fd = fd; 
 
     // Instantiating the Memory allocator
-    // Notice: Base address is set to HEAP_BASE, so the allocator returns offset from bram base addr 
-    // This has been done because the vortex driver write method requires offset and it adds automatically the bram base address 
-    device->allocator = new MemoryAllocator(HEAP_BASE, HEAP_SIZE, PAGE_SIZE, BLOCK_SIZE); 
-    device->mpm_buffer = new vx_buffer{device, BRAM_SIZE-MPM_SIZE, MPM_SIZE, false}; 
+		// Heap offset has been chosen as base addr, so that allocator returns an offset 
+		// from global mem base address: this is helpful as Vortex Linux Driver methods
+		// require that offset 
+
+		device->allocator = new MemoryAllocator(HEAP_OFFS, HEAP_SIZE, PAGE_SIZE, BLOCK_SIZE); 
+    device->mpm_buffer = new vx_buffer{device, MPM_OFFS, MPM_SIZE, false}; 
     
 
     *hdevice = device; 
@@ -195,16 +202,16 @@ int vx_mem_reserve(vx_device_h hdevice, uint64_t address, uint64_t size, int fla
     auto device = (vx_device*)hdevice; 
 
 
-    uint64_t offs = address - BRAM_ADDRESS; 
+    uint64_t offs = address - MEM_BASE; 
     if((device->allocator)->reserve(offs, size) != 0){ 
-	fprintf(stderr, "[VORTEX LIB] Memory Reservation failed\n");  
-	return -1; 
+				fprintf(stderr, "[VORTEX LIB] Memory Reservation failed\n");  
+				return -1; 
     }; 
 	
     auto buffer = new vx_buffer{device, offs, size}; 
     if(nullptr == buffer){
     	(device->allocator)->release(offs); 
-	return -1; 
+			return -1; 
     }; 
 
 
@@ -222,15 +229,15 @@ int vx_mem_alloc(vx_device_h hdevice, uint64_t size, int flags, vx_buffer_h* hbu
     uint64_t offs = 0;
    
     if((device->allocator)->allocate(size, &offs) != 0){
-	fprintf(stderr, "[VORTEX LIB] Memory Allocation failed\n");  
-	return -1; 
+			fprintf(stderr, "[VORTEX LIB] Memory Allocation failed\n");  
+			return -1; 
     } 
 
     
     auto buffer = new vx_buffer{device, offs, size}; 
     if(nullptr == buffer){
-	(device->allocator)->release(offs); 
-	return -1; 
+			(device->allocator)->release(offs); 
+			return -1; 
     }; 
     
     
@@ -254,7 +261,7 @@ int vx_mem_free(vx_buffer_h hbuffer) {
 int vx_mem_address(vx_buffer_h hbuffer, uint64_t* address){ 
 	
     auto buffer = (vx_buffer*) hbuffer; 
-    *address = buffer->offset + BRAM_ADDRESS; 
+    *address = buffer->offset + MEM_BASE; 
 
     return 0; 
 }; 
@@ -262,7 +269,7 @@ int vx_mem_address(vx_buffer_h hbuffer, uint64_t* address){
 
 int vx_copy_to_dev(vx_buffer_h hbuffer, const void* host_ptr, uint64_t dst_offset, uint64_t size){
     if(nullptr == hbuffer || nullptr == host_ptr){ 
-	return -1; 
+			return -1; 
     }; 
 	
     auto buffer = (vx_buffer*) hbuffer; 
@@ -270,8 +277,8 @@ int vx_copy_to_dev(vx_buffer_h hbuffer, const void* host_ptr, uint64_t dst_offse
 
 
     if(dst_offset + size > buffer->size){ 
-	fprintf(stderr, "[VORTEX LIB] Copy failed: Number of bytes required exceded Vortex buffer size\n"); 
-	return -1; 
+			fprintf(stderr, "[VORTEX LIB] Copy failed: Number of bytes required exceded Vortex buffer size\n"); 
+			return -1; 
     } 
 
     pwrite(fd, host_ptr, size, buffer->offset + dst_offset);
@@ -280,15 +287,15 @@ int vx_copy_to_dev(vx_buffer_h hbuffer, const void* host_ptr, uint64_t dst_offse
 
 int vx_copy_from_dev(void* host_ptr, vx_buffer_h hbuffer, uint64_t src_offset, uint64_t size){
     if(nullptr == hbuffer || nullptr == host_ptr){ 
-	return -1; 
+			return -1; 
     }; 
     
     auto buffer = (vx_buffer*) hbuffer; 
     int fd = buffer->dev->fd; 
 
     if(src_offset + size > buffer->size){ 
-	fprintf(stderr, "[VORTEX LIB] Copy failed: Number of bytes required exceded Vortex buffer size\n"); 
-	return -1; 
+			fprintf(stderr, "[VORTEX LIB] Copy failed: Number of bytes required exceded Vortex buffer size\n"); 
+			return -1; 
     } 
     
     pread(fd, host_ptr, size, buffer->offset + src_offset);
@@ -306,8 +313,8 @@ int vx_start(vx_device_h hdevice, vx_buffer_h hkernel, vx_buffer_h harguments){
     auto kernel = (vx_buffer*) hkernel; 
     auto arguments = (vx_buffer*) harguments; 
 
-    uint64_t kernel_addr = BRAM_ADDRESS + kernel->offset;
-    uint64_t args_addr = BRAM_ADDRESS + arguments->offset; 
+    uint64_t kernel_addr = MEM_BASE + kernel->offset;
+    uint64_t args_addr = MEM_BASE + arguments->offset; 
 
 
     uint32_t addr; 
@@ -337,7 +344,24 @@ int vx_start(vx_device_h hdevice, vx_buffer_h hkernel, vx_buffer_h harguments){
     addr = 0;  // when addr = 0, it means where are deasserting reset and valid
     vx_dcr_write(hdevice, addr, 0); 
   
+    struct timespec sleep_time; 
+    sleep_time.tv_sec = 0; 
+    sleep_time.tv_nsec = 1000000; 
+		bool is_started = false;    
+		uint32_t val; 		
+		uint64_t timeout = 1000;  
     
+		while (1) {
+        vx_dcr_read(hdevice, 0, &val);
+				is_started = (val >> START_BIT) & 1; // Start must return 1 
+				if (is_started) break;
+        if(0 == timeout) {
+	    			return -1; 
+				} 
+        
+				nanosleep(&sleep_time, nullptr); 
+				timeout -= 1; // timeout is in millseconds 
+    }
     
     return 0;
 }
@@ -389,26 +413,25 @@ int vx_ready_wait(vx_device_h hdevice, uint64_t timeout){
     auto device = (vx_device*)hdevice; 
     uint32_t val;
     
-    bool is_done;  
+    bool is_ended = false;  
     struct timespec sleep_time; 
     sleep_time.tv_sec = 0; 
     sleep_time.tv_nsec = 1000000; 
 
+
     while (1) {
         vx_dcr_read(hdevice, 0, &val);
-    	vx_copy_from_dev(&device->cycles, device->mpm_buffer, 0x00, sizeof(device->cycles));
-	
-	is_done = !((val >> BUSY_BIT) & 1) && (device->cycles != 0); // Busy must return to 0 
-	if (is_done) break;
+				is_ended = (val >> END_BIT) & 1; // end bit  must return 1 
+				if (is_ended) break;
         if(0 == timeout) {
-	    return -1; 
-	} 
+	    			return -1; 
+				} 
         
-	nanosleep(&sleep_time, nullptr); 
-	timeout -= 1; // timeout is in millseconds 
+				nanosleep(&sleep_time, nullptr); 
+				timeout -= 1; // timeout is in millseconds 
     }
-   
 
+    vx_copy_from_dev(&device->cycles, device->mpm_buffer, 0x00, sizeof(device->cycles));
     vx_copy_from_dev(&device->exitcode, device->mpm_buffer, 0x08, sizeof(device->exitcode));
     
     return 0;
@@ -426,25 +449,26 @@ int vx_upload_kernel_bytes(vx_device_h hdevice, const void* content, uint64_t si
   auto bin_size = size - 2*8; 
   auto runtime_size = (max_vma - min_vma); 
 
+	
   if (min_vma != STARTUP_ADDR) {
-	fprintf(stderr, "Kernel linked at 0x%lx, expected 0x%lx -- check STARTUP_ADDR\n", min_vma, (uint64_t)STARTUP_ADDR);
-	return -1;
+		fprintf(stderr, "Kernel linked at 0x%lx, expected 0x%lx -- check STARTUP_ADDR\n", min_vma, (uint64_t)STARTUP_ADDR);
+		return -1;
   }
 
-  if (max_vma > STACK_BASE_ADDR - STACK_SIZE) {
-	  fprintf(stderr, "Kernel ends at 0x%lx, stacks ends at 0x%lx\n", max_vma, (uint64_t)(STACK_BASE_ADDR - STACK_SIZE));
+  if (max_vma > STARTUP_ADDR + KERNEL_SIZE ) {
+	  fprintf(stderr, "Kernel too large for current memory map. It ends at %lx, limit is %lx", max_vma, (uint64_t)(STARTUP_ADDR + KERNEL_SIZE));
 	  return -1;
    }
 
 
   auto device = (vx_device*)hdevice; 
   // Differently from stub, here we are not calling allocator anymore, just creating a new buffer
-  auto buffer = new vx_buffer{device, STARTUP_ADDR - BRAM_ADDRESS, runtime_size, false}; 
+  auto buffer = new vx_buffer{device, STARTUP_ADDR - MEM_BASE, runtime_size, false}; 
 
   // Copying bytes to buffer 
   if(vx_copy_to_dev(buffer, bytes, 0, bin_size) != 0){
   	delete buffer; 
-	return -1;  
+		return -1;  
   }; 
 
   *hbuffer = buffer;  
@@ -465,7 +489,7 @@ int vx_upload_bytes(vx_device_h hdevice, const void* content, uint64_t size, vx_
   // Copying bytes to buffer 
   if(vx_copy_to_dev(_hbuffer, content, 0, size) != 0){
   	vx_mem_free(_hbuffer); 
-	return -1;  
+		return -1;  
   }; 
 
   *hbuffer = _hbuffer;  
@@ -494,7 +518,7 @@ if (nullptr == hdevice || nullptr == filename || nullptr == hbuffer)
 
   // upload buffer
   if(vx_upload_kernel_bytes(hdevice, content.data(), size, hbuffer) != 0){
-	return -1; 	  
+		return -1; 	  
   };
 
   return 0;

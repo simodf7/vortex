@@ -311,7 +311,7 @@
 		reg ended; 
 		always @(posedge S_AXI_ACLK) 
 			begin 
-				if(S_AXI_ARESETN == 0'b1 || slv_reg[13])  // reset hardware or reset given by software 
+				if(S_AXI_ARESETN == 1'b0 || slv_reg1[13])  // reset hardware or reset given by software 
 				  begin 
 							busy_reg <= 1'b0; 
 							started <= 1'b0; 
