@@ -1,7 +1,7 @@
 ROOT_DIR := $(realpath ../../../..)
 include $(ROOT_DIR)/config.mk
 
-
+TARGET ?= fpga
 DEVICE ?= xczu9eg-ffvb1156-2-e
 
 MAX_JOBS ?= 2
