@@ -106,7 +106,7 @@ project_1/sources.txt:
 	$(SCRIPT_DIR)/gen_sources.sh $(CFLAGS) -P -Cproject_1/src -Oproject_1/sources.txt
 
 build: done.dcp
-done.dcp: project_1/sources.txt project.tcl pre_opt_hook.tcl soc_bd.tcl ip_repo top.xdc
+done.dcp: project_1/sources.txt project.tcl pre_opt_hook.tcl soc_bd.tcl ip_repo top.xdc $(GLOBAL_MEM).tcl
 	MAX_JOBS=$(JOBS) FPU_IP=project_1/ip TOOL_DIR=$(SCRIPT_DIR) $(BD_ENV) $(VIVADO) -mode batch -source project.tcl -tclargs $(DEVICE) project_1/sources.txt
 	echo done > done.dcp
 
