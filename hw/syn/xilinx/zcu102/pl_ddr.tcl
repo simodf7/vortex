@@ -23,15 +23,15 @@ set_property -dict [list \
 ] [get_bd_cells ddr4]
 
 
-## PSR del dominio ui_clk
-# MIG generates a 300 Mhz (so another clock domain). 
-# We need a second Processsor System Reset because reset must be synchronized 
-# on ui_clk and not on pl_ck0 
 
-create_bd_cell -type ip -vlnv xilinx.com:ip:proc_sys_reset:5.0 rst_ddr4_0_300M
+## Inverter for reset 
+# ui_clk_sync_rst e' active high, aresetn wants active low.
 
-## Set Smartconnect NUM_CLKS property to add a new clock domain 
-set_property CONFIG.NUM_CLKS {2} [get_bd_cells smartconnect]
+create_bd_cell -type ip -vlnv xilinx.com:ip:util_vector_logic:2.0 ddr_rstn
+set_property -dict [list \
+    CONFIG.C_OPERATION {not} \
+    CONFIG.C_SIZE      {1} \
+] [get_bd_cells ddr_rstn]
 
 
 
@@ -75,43 +75,35 @@ connect_bd_intf_net -intf_net smartconnect_M00_AXI \
 #   1. sys_rst resetta il controller
 #   2. il MIG genera ui_clk e tiene ui_clk_sync_rst ALTO
 #   3. finita la calibrazione, ui_clk_sync_rst scende
-#   4. il PSR lo converte in un aresetn pulito e sincrono
 #   5. la porta AXI del MIG esce dal reset ed e' utilizzabile
 # ---------------------------------------------------------
 
-
-## UI CLK to ACLK1 smartconnect and to DDR PSR 
-
-## ui_clk: clock GENERATO dal MIG, non ricevuto.
-## E' il dominio in cui vive la sua porta AXI. Va a due posti:
-##   - al PSR, che deve sincronizzare il reset su questo clock
-##   - allo SmartConnect (aclk1), che cosi' sa che esiste un
-##     secondo dominio e inserisce il CDC da solo
+# sys_rst: reset di sistema, attivo alto, dominio pl_clk0.
+## Deve venire da fuori: ui_clk lo genera il MIG stesso.
+connect_bd_net -net proc_sys_reset_peripheral_reset \
+    [get_bd_pins proc_sys_reset/peripheral_reset] \
+    [get_bd_pins ddr4/sys_rst]
+ 
+## ui_clk: clock GENERATO dal MIG. E' il dominio della sua porta
+## AXI; lo SmartConnect lo riceve su aclk1 per il CDC.
 connect_bd_net -net ddr4_c0_ddr4_ui_clk \
     [get_bd_pins ddr4/c0_ddr4_ui_clk] \
-    [get_bd_pins rst_ddr4_0_300M/slowest_sync_clk] \
     [get_bd_pins smartconnect/aclk1]
-
-## UI SYNC RST to DDR PSR EXT RESET IN 
-
-## ui_clk_sync_rst: reset attivo ALTO generato dal MIG, gia'
-## sincrono su ui_clk. Resta alto finche' il controller non e'
-## pronto. Entra nel PSR come reset esterno.
+ 
+## ui_clk_sync_rst -> invertitore
 connect_bd_net -net ddr4_c0_ddr4_ui_clk_sync_rst \
     [get_bd_pins ddr4/c0_ddr4_ui_clk_sync_rst] \
-    [get_bd_pins rst_ddr4_0_300M/ext_reset_in]
+    [get_bd_pins ddr_rstn/Op1]
+ 
+## Lo STESSO aresetn al MIG e a chi gli parla.
+## E' questa la riga che impedisce allo SmartConnect di inoltrare
+## transazioni mentre la DDR sta ancora calibrando.
+connect_bd_net -net ddr_rstn_Res \
+    [get_bd_pins ddr_rstn/Res] \
+    [get_bd_pins ddr4/c0_ddr4_aresetn] \
+    [get_bd_pins smartconnect/aresetn]
 
-## 
 
-## Ritorno: il PSR produce un reset attivo BASSO, pulito e
-## sincrono su ui_clk, che sblocca la porta AXI del MIG.
-connect_bd_net -net rst_ddr4_0_300M_peripheral_aresetn \
-    [get_bd_pins rst_ddr4_0_300M/peripheral_aresetn] \
-    [get_bd_pins ddr4/c0_ddr4_aresetn]
-
-connect_bd_net -net rst_ddr4_0_300M_peripheral_reset \
-		[get_bd_pins rst_ddr4_0_300M/peripheral_reset] \
-		[get_bd_pins ddr4/sys_rst]
 
 ### Addresses 
 

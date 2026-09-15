@@ -12,6 +12,12 @@ CXXFLAGS += -I$(INC_DIR) -I../common -I$(ROOT_DIR)/hw -I$(SIM_DIR)/simx -I$(SW_C
 CXXFLAGS += -DXLEN_$(XLEN)
 CXXFLAGS += $(CONFIGS)
 
+# from hw/syn/xilinx/zcu102
+ifdef ADDRESS_FLAGS
+	CXXFLAGS += $(ADDRESS_FLAGS)
+endif 	
+
+
 LDFLAGS += -shared
 LDFLAGS += -L$(DESTDIR)
 

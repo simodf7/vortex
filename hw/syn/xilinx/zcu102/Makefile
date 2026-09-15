@@ -78,9 +78,9 @@ all: build
 
 $(KERNEL).bin:
 	$(MAKE) -C $(ROOT_DIR)/kernel clean
-	$(MAKE) -C $(ROOT_DIR)/kernel CFLAGS+="$(KERN_ADDRESS_FLAGS)" 
+	$(MAKE) -C $(ROOT_DIR)/kernel KERN_ADDRESS_FLAGS="$(KERN_ADDRESS_FLAGS)"
 	$(MAKE) -C $(ROOT_DIR)/tests/kernel/$(KERNEL) clean
-	$(MAKE) -C $(ROOT_DIR)/tests/kernel/$(KERNEL) CFLAGS+="$(KERN_ADDRESS_FLAGS)"
+	$(MAKE) -C $(ROOT_DIR)/tests/kernel/$(KERNEL) KERN_ADDRESS_FLAGS="$(KERN_ADDRESS_FLAGS)"
 	cp $(ROOT_DIR)/tests/kernel/$(KERNEL)/$(KERNEL).bin $(KERNEL).bin
 
 kernel.bin.coe: $(KERNEL).bin
@@ -127,15 +127,15 @@ bd: project_1/sources.txt init_bd.tcl pre_opt_hook.tcl soc_bd.tcl ip_repo top.xd
 
 TEST ?= n
 
-host-dev: 
+host-dev: vortex_config.mk 
 	$(MAKE) -C $(ROOT_DIR)/kernel clean
-	$(MAKE) -C $(ROOT_DIR)/kernel CFLAGS+="$(KERN_ADDRESS_FLAGS)"
+	$(MAKE) -C $(ROOT_DIR)/kernel KERN_ADDRESS_FLAGS="$(KERN_ADDRESS_FLAGS)"
 	mkdir -p host-dev 
 	$(MAKE) -C $(ROOT_DIR)/runtime/soc clean 
-	$(MAKE) -C $(ROOT_DIR)/runtime/soc CXXFLAGS+="$(ADDRESS_FLAGS)"
+	$(MAKE) -C $(ROOT_DIR)/runtime/soc ADDRESS_FLAGS="$(ADDRESS_FLAGS)"
 	cp $(ROOT_DIR)/runtime/libvortex-soc.so host-dev/libvortex-soc.so 	
 	$(MAKE) -C $(ROOT_DIR)/tests/regression/$(KERNEL) clean
-	TEST=$(TEST) $(MAKE) -C $(ROOT_DIR)/tests/regression/$(KERNEL) 
+	TEST=$(TEST) $(MAKE) -C $(ROOT_DIR)/tests/regression/$(KERNEL) STARTUP_ADDR=$(STARTUP_ADDR) 
 	cp $(ROOT_DIR)/tests/regression/$(KERNEL)/$(KERNEL) host-dev/$(KERNEL) 
 	cp $(ROOT_DIR)/tests/regression/$(KERNEL)/kernel.vxbin host-dev/kernel.vxbin 
 	cp $(ROOT_DIR)/tests/regression/$(KERNEL)/kernel.dump host-dev/kernel.dump 

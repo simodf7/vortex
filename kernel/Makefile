@@ -7,6 +7,15 @@ else
 CFLAGS += -march=rv32imaf -mabi=ilp32f
 endif
 
+
+# from hw/syn/xilinx/zcu102
+
+ifdef KERN_ADDRESS_FLAGS 
+		CFLAGS += $(KERN_ADDRESS_FLAGS) 
+endif 	
+
+
+
 INC_DIR := $(VORTEX_HOME)/kernel/include
 SRC_DIR := $(VORTEX_HOME)/kernel/src
 

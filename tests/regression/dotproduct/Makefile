@@ -15,7 +15,6 @@ TYPE ?= int
 CXXFLAGS += -DTYPE=$(TYPE)
 VX_CFLAGS += -DTYPE=$(TYPE)
 
-STARTUP_ADDR ?= 0xA0000000
 VORTEX_RT_LIB ?= vortex-soc
 
 TEST ?= y

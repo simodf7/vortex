@@ -6,13 +6,9 @@ else
 CFLAGS += -march=rv32imaf_zbkb_zbkc_zbkx_zknd_zkne_zknh -mabi=ilp32f
 endif
 
-STARTUP_ADDR ?= 0x80000000
-
-#Adding CFLAGS for STARTUP_ADDR if redefined
-ifdef STARTUP_ADDR 
-CFLAGS += -DSTARTUP_ADDR=$(STARTUP_ADDR)
+ifdef KERN_ADDRESS_FLAGS 
+	CFLAGS += $(KERN_ADDRESS_FLAGS) 
 endif 
-
 
 
 VORTEX_KN_PATH ?= $(ROOT_DIR)/kernel

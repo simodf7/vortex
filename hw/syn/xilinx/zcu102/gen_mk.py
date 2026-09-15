@@ -91,6 +91,8 @@ rows.append(f"NUM_WARPS	:= {num_warps}")
 rows.append(f"NUM_CLUSTER	:= {num_cluster}") 
 rows.append(f"NUM_SOCKETS	:= {num_sockets}") 
 rows.append(f"STACK_LOG2_SIZE := {stack_log2_size}")
+rows.append(f"STARTUP_ADDR := {startup_addr:#x}")
+
 
 configs.append(f"-DXLEN_{xlen}") 
 configs.append(f"-DNUM_CORES={num_cores}") 
