@@ -24,7 +24,7 @@ set_property -dict [list \
 
 
 ## SMARTCONNECT
-set_property CONFIG.NUM_CLKS{2} [get_bd_cells smartconnect] 
+set_property CONFIG.NUM_CLKS {2} [get_bd_cells smartconnect] 
 set_property CONFIG.ASSOCIATED_BUSIF {M00_AXI} [get_bd_pins smartconnect/aclk1]
 
 
