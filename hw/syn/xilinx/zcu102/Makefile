@@ -14,6 +14,8 @@ RTL_DIR := $(VORTEX_HOME)/hw/rtl
 DPI_DIR := $(VORTEX_HOME)/hw/dpi
 AFU_DIR := $(RTL_DIR)/afu/xrt
 SCRIPT_DIR := $(VORTEX_HOME)/hw/scripts
+BUILD_DIR := $(VORTEX_HOME)/build/hw/syn/xilinx/zcu102
+
 
 KERNEL ?= blinky
 
@@ -21,10 +23,11 @@ KERNEL ?= blinky
 
 CONFIG ?= pl_ddr
 
-vortex_config.mk: $(SRC_DIR)/configs/$(CONFIG).json $(SRC_DIR)/gen_mk.py
+$(CONFIG)/vortex_config.mk: $(SRC_DIR)/configs/$(CONFIG).json $(SRC_DIR)/gen_mk.py
+	mkdir -p $(CONFIG)
 	python3 $(SRC_DIR)/gen_mk.py $< -o $@
 		 
-include vortex_config.mk 
+include $(CONFIG)/vortex_config.mk 
 
 #denable DEBUG
 DEBUG ?= 3
@@ -100,18 +103,19 @@ project.tcl: $(SRC_DIR)/project.tcl.in
 ip_repo: 
 	cp -r $(SRC_DIR)/$@ .
 
-gen-sources: vortex_config.mk project_1/sources.txt
-project_1/sources.txt:
-	mkdir -p project_1
-	$(SCRIPT_DIR)/gen_sources.sh $(CFLAGS) -P -Cproject_1/src -Oproject_1/sources.txt
+gen-sources: $(CONFIG)/vortex_config.mk sources.txt
+sources.txt:
+	$(SCRIPT_DIR)/gen_sources.sh $(CFLAGS) -P -C$(CONFIG)/src -O$(CONFIG)/sources.txt
 
 build: done.dcp
-done.dcp: project_1/sources.txt project.tcl pre_opt_hook.tcl soc_bd.tcl ip_repo top.xdc $(GLOBAL_MEM).tcl
-	MAX_JOBS=$(JOBS) FPU_IP=project_1/ip TOOL_DIR=$(SCRIPT_DIR) $(BD_ENV) $(VIVADO) -mode batch -source project.tcl -tclargs $(DEVICE) project_1/sources.txt
+done.dcp: sources.txt project.tcl pre_opt_hook.tcl soc_bd.tcl ip_repo top.xdc $(GLOBAL_MEM).tcl
+	cd $(CONFIG) && \
+	MAX_JOBS=$(JOBS) FPU_IP=ip TOOL_DIR=$(SCRIPT_DIR) IP_REPO=$(BUILD_DIR)/ip_repo $(BD_ENV) $(VIVADO) -mode batch -source $(BUILD_DIR)/project.tcl -tclargs $(DEVICE) sources.txt
 	echo done > done.dcp
 
-hardware: xsa_gen.tcl done.dcp 	
-	MAX_JOBS=$(JOBS) TOOL_DIR=$(SCRIPT_DIR) $(VIVADO) -mode batch -source xsa_gen.tcl -tclargs project_1/project_1.xpr 
+hardware: xsa_gen.tcl done.dcp 
+	cd $(CONFIG) && \
+	MAX_JOBS=$(JOBS) TOOL_DIR=$(SCRIPT_DIR) $(VIVADO) -mode batch -source $(BUILD_DIR)/xsa_gen.tcl -tclargs project/project.xpr 
 
 run: simulate.tcl done.dcp
 	MAX_JOBS=$(JOBS) TOOL_DIR=$(SCRIPT_DIR) $(VIVADO) -mode batch -source simulate.tcl -tclargs project_1/project_1.xpr 50000ns
@@ -120,14 +124,16 @@ open: done.dcp
 	TOOL_DIR=$(SCRIPT_DIR) $(VIVADO) project_1/project_1.xpr &
 
 
-bd: project_1/sources.txt init_bd.tcl pre_opt_hook.tcl soc_bd.tcl ip_repo top.xdc $(GLOBAL_MEM).tcl 
-	$(BD_ENV) FPU_IP=project_1/ip TOOL_DIR=$(SCRIPT_DIR) \
-	  $(VIVADO) -mode gui -source init_bd.tcl -tclargs $(DEVICE) project_1/sources.txt
+bd: sources.txt init_bd.tcl pre_opt_hook.tcl soc_bd.tcl ip_repo top.xdc $(GLOBAL_MEM).tcl 
+	mkdir -p $(CONFIG)/bd 
+	cd $(CONFIG)/bd && \
+	$(BD_ENV) FPU_IP=ip TOOL_DIR=$(SCRIPT_DIR) \
+	  $(VIVADO) -mode gui -source $(BUILD_DIR)/init_bd.tcl -tclargs $(DEVICE) ../sources.txt
 
 
 TEST ?= n
 
-host-dev: vortex_config.mk 
+host-dev: $(CONFIG)/vortex_config.mk 
 	$(MAKE) -C $(ROOT_DIR)/kernel clean
 	$(MAKE) -C $(ROOT_DIR)/kernel KERN_ADDRESS_FLAGS="$(KERN_ADDRESS_FLAGS)"
 	mkdir -p host-dev 
@@ -140,8 +146,15 @@ host-dev: vortex_config.mk
 	cp $(ROOT_DIR)/tests/regression/$(KERNEL)/kernel.vxbin host-dev/kernel.vxbin 
 	cp $(ROOT_DIR)/tests/regression/$(KERNEL)/kernel.dump host-dev/kernel.dump 
 
+clean-bd: 
+	rm -rf $(CONFIG)/bd 
+
+clean-config: 
+	rm -rf $(CONFIG) 
+
 clean:
-	rm -rf project_1 $(KERNEL).bin kernel.bin.coe
+	rm -rf $(KERNEL).bin kernel.bin.coe
+	rm -rf src *.txt 
 	rm -rf .Xil *.log *.jou *.dcp *.rpt
 	rm -rf host-dev
 	rm -rf *.mk *.tcl *.xdc

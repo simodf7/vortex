@@ -581,10 +581,10 @@ assign_bd_address -offset $::env(CONSOLE_ADDR) -range $::env(CONSOLE_SIZE) \
 
 
 switch $::env(GLOBAL_MEM) {
-    "bram" 	 { source bram.tcl   } 
-    "pl_ddr" { source pl_ddr.tcl }
-    "ps_ddr" { source ps_ddr.tcl }
-    default  { source pl_ddr.tcl }
+    "bram"   { source $script_dir/bram.tcl} 
+    "pl_ddr" { source $script_dir/pl_ddr.tcl }
+    "ps_ddr" { source $script_dir/ps_ddr.tcl }
+    default  { source $script_dir/pl_ddr.tcl }
 }
 
 

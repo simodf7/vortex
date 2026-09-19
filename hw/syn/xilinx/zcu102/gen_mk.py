@@ -3,6 +3,23 @@ import sys
 import argparse 
 
 
+############ Vortex Address Space (64 bit) ########
+### Unused
+### LOCAL MEM 
+### GLOBAL MEM 
+    ### KERNEL (128 kb)  
+    ### Guard  (4 kb) 
+    ### STACK  (TOTAL THREADS * 8 kb) 
+    ### HEAP 
+    ### MPM 
+### VX CONSOLE  (IO_BASE_ADDR) 
+### DCR IP 
+### GPIO  
+### UNUSED 
+###################################################
+
+
+
 def align_up(address, size): 
 	return (address + size - 1) & ~(size - 1) 
 
@@ -19,19 +36,25 @@ with open(args.config, 'r', encoding='utf-8') as file:
 
 
 xlen = cfg["xlen"]
-
 num_cores = cfg["num_cores"] 
 num_cluster = cfg["num_cluster"] 
 num_warps = cfg["num_warps"] 
 num_threads = cfg["num_threads"] 
 num_sockets = cfg["num_sockets"] 
-
-# Stack size calculation 
-
-total_threads = num_cluster * num_cores * num_warps * num_threads; 
-
 mem_base = int(cfg["mem_base"], 16)  
 mem_size = int(cfg["mem_size"], 16)  
+
+# Local Mem calculation
+lmem = False 
+lmem_log_size = int(cfg["local_mem_log_size"])
+if (lmem_log_size != -1): # NOTE: -1 is intended as disabled 
+    lmem = True 
+    lmem_size = 2 ** lmem_log_size 
+    lmem_base_addr = mem_base - lmem_size  
+
+
+# Stack size calculation 
+total_threads = num_cluster * num_cores * num_warps * num_threads; 
 
 kernel_size = int(cfg["kernel_size"], 16)
 startup_addr = mem_base 
@@ -107,19 +130,19 @@ configs.append(f"-DIO_BASE_ADDR={xlen}\\'h{io_base_addr:x}")
 configs.append(f"-DIO_MPM_ADDR={xlen}\\'h{mpm_base:x}") 
 configs.append(f"-DIO_END_ADDR={xlen}\\'h{io_end_addr:x}") 
 
-if(not cfg["l1_cache"]): 
+# L1 Cache
+l1_size = int(cfg["l1_cache_dim"])
+if(l1_size == 0): 
 	configs.append(f"-DL1_DISABLE") 
-else: 
-	l1_size = cfg["l1_cache_dim"]
+else:
 	configs.append(f"-DICACHE_SIZE={l1_size}") 
 	configs.append(f"-DDCACHE_SIZE={l1_size}") 
 
-
-if(not cfg["local_mem"]): 
-	configs.append(f"-DLMEM_DISABLE") 
-else: 
-	lmem_log_size = cfg["local_mem_log_size"]
+# Local Memory 
+if(lmem): 
 	configs.append(f"-DLMEM_LOG_SIZE={lmem_log_size}") 
+else: 
+	configs.append(f"-DLMEM_DISABLE") 
 
 
 rows.append("CONFIGS += " + " ".join(configs))
