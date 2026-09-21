@@ -181,6 +181,8 @@ proc run_synthesis {} {
   report_utilization -file $report_dir/post_synth.utilization.rpt \
 	  -hierarchical -hierarchical_percentages
 
+  report_utilization -file $report_dir/post_synth.utilization.flat.rpt
+
   # Write checkpoint
   write_checkpoint -force post_synth.dcp
 }
@@ -233,7 +235,8 @@ proc run_reports {} {
   # Generate reports
   report_utilization -hierarchical -hierarchical_percentage \
    -file $report_dir/post_impl.utilization.rpt
-  
+ 
+  report_utilization -file $report_dir/post_impl.util.flat.rpt 
   report_timing_summary -file $report_dir/timing.rpt
   report_power -file $report_dir/power.rpt
   report_drc -file $report_dir/drc.rpt 

@@ -244,7 +244,7 @@
         <spirit:parameters>
           <spirit:parameter>
             <spirit:name>viewChecksum</spirit:name>
-            <spirit:value>d6f9ff32</spirit:value>
+            <spirit:value>a5d13e4e</spirit:value>
           </spirit:parameter>
         </spirit:parameters>
       </spirit:view>
@@ -260,7 +260,7 @@
         <spirit:parameters>
           <spirit:parameter>
             <spirit:name>viewChecksum</spirit:name>
-            <spirit:value>d6f9ff32</spirit:value>
+            <spirit:value>a5d13e4e</spirit:value>
           </spirit:parameter>
         </spirit:parameters>
       </spirit:view>
@@ -687,33 +687,27 @@
       <spirit:file>
         <spirit:name>src/axi_frontend.v</spirit:name>
         <spirit:fileType>verilogSource</spirit:fileType>
-        <spirit:userFileType>IMPORTED_FILE</spirit:userFileType>
       </spirit:file>
       <spirit:file>
         <spirit:name>src/buffer_manager.v</spirit:name>
         <spirit:fileType>verilogSource</spirit:fileType>
-        <spirit:userFileType>IMPORTED_FILE</spirit:userFileType>
       </spirit:file>
       <spirit:file>
         <spirit:name>src/circular_queue.v</spirit:name>
         <spirit:fileType>verilogSource</spirit:fileType>
-        <spirit:userFileType>IMPORTED_FILE</spirit:userFileType>
       </spirit:file>
       <spirit:file>
         <spirit:name>src/formatter.v</spirit:name>
         <spirit:fileType>verilogSource</spirit:fileType>
-        <spirit:userFileType>IMPORTED_FILE</spirit:userFileType>
       </spirit:file>
       <spirit:file>
         <spirit:name>src/uart_tx.v</spirit:name>
         <spirit:fileType>verilogSource</spirit:fileType>
-        <spirit:userFileType>IMPORTED_FILE</spirit:userFileType>
       </spirit:file>
       <spirit:file>
         <spirit:name>src/vx_console.v</spirit:name>
         <spirit:fileType>verilogSource</spirit:fileType>
         <spirit:userFileType>CHECKSUM_464c1a73</spirit:userFileType>
-        <spirit:userFileType>IMPORTED_FILE</spirit:userFileType>
       </spirit:file>
     </spirit:fileSet>
     <spirit:fileSet>
@@ -721,32 +715,26 @@
       <spirit:file>
         <spirit:name>src/axi_frontend.v</spirit:name>
         <spirit:fileType>verilogSource</spirit:fileType>
-        <spirit:userFileType>IMPORTED_FILE</spirit:userFileType>
       </spirit:file>
       <spirit:file>
         <spirit:name>src/buffer_manager.v</spirit:name>
         <spirit:fileType>verilogSource</spirit:fileType>
-        <spirit:userFileType>IMPORTED_FILE</spirit:userFileType>
       </spirit:file>
       <spirit:file>
         <spirit:name>src/circular_queue.v</spirit:name>
         <spirit:fileType>verilogSource</spirit:fileType>
-        <spirit:userFileType>IMPORTED_FILE</spirit:userFileType>
       </spirit:file>
       <spirit:file>
         <spirit:name>src/formatter.v</spirit:name>
         <spirit:fileType>verilogSource</spirit:fileType>
-        <spirit:userFileType>IMPORTED_FILE</spirit:userFileType>
       </spirit:file>
       <spirit:file>
         <spirit:name>src/uart_tx.v</spirit:name>
         <spirit:fileType>verilogSource</spirit:fileType>
-        <spirit:userFileType>IMPORTED_FILE</spirit:userFileType>
       </spirit:file>
       <spirit:file>
         <spirit:name>src/vx_console.v</spirit:name>
         <spirit:fileType>verilogSource</spirit:fileType>
-        <spirit:userFileType>IMPORTED_FILE</spirit:userFileType>
       </spirit:file>
     </spirit:fileSet>
     <spirit:fileSet>
@@ -759,7 +747,7 @@
       </spirit:file>
     </spirit:fileSet>
   </spirit:fileSets>
-  <spirit:description>IP module to support Vortex printf on FPGA</spirit:description>
+  <spirit:description>IP module to support Vortex Print on FPGA</spirit:description>
   <spirit:parameters>
     <spirit:parameter>
       <spirit:name>CLK_FREQ_HZ</spirit:name>
@@ -836,13 +824,13 @@
       <xilinx:displayName>vx_console</xilinx:displayName>
       <xilinx:definitionSource>package_project</xilinx:definitionSource>
       <xilinx:coreRevision>1</xilinx:coreRevision>
-      <xilinx:coreCreationDateTime>2026-09-11T14:16:41Z</xilinx:coreCreationDateTime>
+      <xilinx:coreCreationDateTime>2026-09-20T16:17:39Z</xilinx:coreCreationDateTime>
     </xilinx:coreExtensions>
     <xilinx:packagingInfo>
       <xilinx:xilinxVersion>2022.2</xilinx:xilinxVersion>
       <xilinx:checksum xilinx:scope="busInterfaces" xilinx:value="d9c5a59d"/>
       <xilinx:checksum xilinx:scope="memoryMaps" xilinx:value="107c56c1"/>
-      <xilinx:checksum xilinx:scope="fileGroups" xilinx:value="4d32a5b6"/>
+      <xilinx:checksum xilinx:scope="fileGroups" xilinx:value="59672861"/>
       <xilinx:checksum xilinx:scope="ports" xilinx:value="b83a04f2"/>
       <xilinx:checksum xilinx:scope="hdlParameters" xilinx:value="838bcef9"/>
       <xilinx:checksum xilinx:scope="parameters" xilinx:value="c4beb8e7"/>

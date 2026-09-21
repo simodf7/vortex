@@ -9,7 +9,8 @@ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_bram_ctrl:4.1 axi_bram_ctrl
 set_property CONFIG.DATA_WIDTH {512} [get_bd_cells axi_bram_ctrl]
 
 ## BRAM
-# 16384 parole da 512 bit = 1 MB.
+set depth [expr {($::env(MEM_SIZE) * 8) / 512}] 
+
 create_bd_cell -type ip -vlnv xilinx.com:ip:blk_mem_gen:8.4 axi_bram_ctrl_bram
 set_property -dict [list \
     CONFIG.Assume_Synchronous_Clk {true} \
@@ -22,7 +23,7 @@ set_property -dict [list \
     CONFIG.Read_Width_B {512} \
     CONFIG.Register_PortB_Output_of_Memory_Primitives {false} \
     CONFIG.Use_RSTB_Pin {true} \
-    CONFIG.Write_Depth_A {16384} \
+    CONFIG.Write_Depth_A $depth \
     CONFIG.Write_Width_A {512} \
     CONFIG.use_bram_block {Stand_Alone} \
 ] [get_bd_cells axi_bram_ctrl_bram]
@@ -53,7 +54,7 @@ connect_bd_intf_net -intf_net smartconnect_M00_AXI \
 # Reset
 connect_bd_net [get_bd_pins proc_sys_reset/peripheral_aresetn] \
                [get_bd_pins axi_bram_ctrl/s_axi_aresetn] \
-							 [get_bd_pins	smartconnect/aresetn] 
+	       [get_bd_pins smartconnect/aresetn] 
 
 # Clock  
 connect_bd_net [get_bd_pins zynq_ultra_ps_e/pl_clk0] \
@@ -72,7 +73,7 @@ assign_bd_address -offset $::env(MEM_BASE) -range $::env(MEM_SIZE)  \
 ## ZYNQ ULTRASCALE PS Address Space  
 
 # Mapping BRAM in PS address space
-assign_bd_address -offset $::env(MEM_BASE) -range $::env(MEM:SIZE)  \
+assign_bd_address -offset $::env(MEM_BASE) -range $::env(MEM_SIZE)  \
     -target_address_space [get_bd_addr_spaces zynq_ultra_ps_e/Data] \
     [get_bd_addr_segs axi_bram_ctrl/S_AXI/Mem0] -force
 

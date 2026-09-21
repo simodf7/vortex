@@ -35,9 +35,9 @@ module buffer_manager #(
   wire [INDEX_WIDTH-1:0] q_head; 
 	wire q_full; 
 	wire q_empty; 
-	wire q_push; 
-  wire q_pop; 
-	wire [INDEX_WIDTH-1:0] q_elem_push;  		
+	wire  q_push; 
+  wire  q_pop; 
+	wire  [INDEX_WIDTH-1:0] q_elem_push;  		
 	
 
   // Circular queue
@@ -62,8 +62,9 @@ module buffer_manager #(
 
 	// BUFFERS
   
-	// Buffer
-	reg [7:0] buffer [0:NUM_BUFFERS-1][0:LINE_SIZE-1]; 
+	// Buffer (built so that vivado infers block RAM instead of LUTs) 
+	(* ram_style = "block" *)
+	reg [7:0] buffer [0:(NUM_BUFFERS * LINE_SIZE) -1]; 
 	
 	// Wptr[x] is the pointer to the next element for the 2^x-th buffer 
   reg [LINE_LOG2:0] wptr [0:NUM_BUFFERS-1]; 
@@ -71,11 +72,15 @@ module buffer_manager #(
 	// a bit for each buffer tells if it's ready to bu flushed 
 	reg buffer_status [0:NUM_BUFFERS-1]; 
 
-  
+	// Linearization 
+	localparam integer ADDR_W = INDEX_WIDTH + LINE_LOG2; 
+	wire [ADDR_W-1:0] line_wr_addr = {wr_index, wptr[wr_index][LINE_LOG2-1:0]}; 
+	wire [ADDR_W-1:0] line_rd_addr = {q_head, rd_addr}; 
+ 
 	// Condition to flush 
 
 	// 1) Buffer is full -> there is space only for the last character 
-	wire buffer_full = (wptr[wr_index] == LINE_SIZE -1);	 
+	wire buffer_full = (wptr[wr_index] == LINE_SIZE-1);	 
 	
 	// 2) A newline was sent 
 	wire is_newline  = (wr_char == 8'h0A); 
@@ -105,9 +110,9 @@ module buffer_manager #(
 	// Read and Write on Buffers 
 	always @(posedge aclk) begin
 			if(do_store) begin 
-					buffer[wr_index][wptr[wr_index]] <= wr_char; 
+					buffer[line_wr_addr] <= wr_char; 
 			end 
-			rd_data <= buffer[q_head][rd_addr];  
+			rd_data <= buffer[line_rd_addr];  
 	end 
 
 	integer i; 
