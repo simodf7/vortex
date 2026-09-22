@@ -32,6 +32,7 @@ include $(CONFIG)/vortex_config.mk
 #denable DEBUG
 DEBUG ?= 3
 
+TEST ?= n
 
 # include paths
 FPU_INCLUDE = -I$(RTL_DIR)/fpu
@@ -60,6 +61,10 @@ CFLAGS += -DNDEBUG -DSYNTHESIS -DVIVADO
 CFLAGS += $(CONFIGS) # (from vortex-config.mk) 
 CFLAGS += $(RTL_INCLUDE)
 CFLAGS += $(EXT_FLAGS) # (from vortex-config.mk) 
+
+ifeq ($(TEST), y) 
+		CFLAGS += -DPERF_ENABLE
+endif 
 
 
 # control RTL debug tracing states
@@ -131,14 +136,13 @@ bd: sources.txt init_bd.tcl pre_opt_hook.tcl soc_bd.tcl ip_repo top.xdc $(GLOBAL
 	  $(VIVADO) -mode gui -source $(BUILD_DIR)/init_bd.tcl -tclargs $(DEVICE) sources.txt
 
 
-TEST ?= n
 
 host-dev: $(CONFIG)/vortex_config.mk 
 	$(MAKE) -C $(ROOT_DIR)/kernel clean
 	$(MAKE) -C $(ROOT_DIR)/kernel KERN_ADDRESS_FLAGS="$(KERN_ADDRESS_FLAGS)"
 	mkdir -p host-dev 
 	$(MAKE) -C $(ROOT_DIR)/runtime/soc clean 
-	$(MAKE) -C $(ROOT_DIR)/runtime/soc ADDRESS_FLAGS="$(ADDRESS_FLAGS)"
+	TEST=$(TEST) $(MAKE) -C $(ROOT_DIR)/runtime/soc ADDRESS_FLAGS="$(ADDRESS_FLAGS)"
 	cp $(ROOT_DIR)/runtime/libvortex-soc.so host-dev/libvortex-soc.so 	
 	$(MAKE) -C $(ROOT_DIR)/tests/regression/$(KERNEL) clean
 	TEST=$(TEST) $(MAKE) -C $(ROOT_DIR)/tests/regression/$(KERNEL) STARTUP_ADDR=$(STARTUP_ADDR) 

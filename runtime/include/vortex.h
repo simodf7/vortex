@@ -121,9 +121,6 @@ int vx_dcr_write(vx_device_h hdevice, uint32_t addr, uint32_t value);
 // query device performance counter
 int vx_mpm_query(vx_device_h hdevice, uint32_t addr, uint32_t core_id, uint64_t* value);
 
-// return cycles and exit code of the last kernel execution
-int vx_kernel_stats(vx_device_h hdevice, uint64_t* cycles, uint64_t* exitcode);
-
 ////////////////////////////// UTILITY FUNCTIONS //////////////////////////////
 
 // upload bytes to device

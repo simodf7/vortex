@@ -118,8 +118,6 @@ struct vx_device{
 	int fd = -1; 
 	MemoryAllocator* allocator = nullptr; 
 	vx_buffer* mpm_buffer = nullptr; 
-  uint64_t cycles = 0; 
-	uint64_t exitcode = 0; 	
 }; 
 
 
@@ -163,7 +161,7 @@ int vx_dev_caps(vx_device_h hdevice, uint32_t caps_id, uint64_t* value) {
     case VX_CAPS_NUM_CORES:       *value = NUM_CORES; break;
     case VX_CAPS_CACHE_LINE_SIZE: *value = MEM_BLOCK_SIZE; break;
     case VX_CAPS_GLOBAL_MEM_SIZE: *value = HEAP_SIZE; break;
-    case VX_CAPS_LOCAL_MEM_SIZE:  *value = 0; break;   // LMEM_DISABLE
+    case VX_CAPS_LOCAL_MEM_SIZE:  *value = 1 << LMEM_LOG_SIZE; break;  
     case VX_CAPS_NUM_MEM_BANKS:   *value = 1; break;
     case VX_CAPS_MEM_BANK_SIZE:   *value = HEAP_SIZE; break;
     default:
@@ -321,24 +319,29 @@ int vx_start(vx_device_h hdevice, vx_buffer_h hkernel, vx_buffer_h harguments){
     uint32_t value; 
 
 
-    addr = 0x001; // VX_DCR_BASE_STARTUP_ADDR0
+    addr = VX_DCR_BASE_STARTUP_ADDR0; // 0x001 = VX_DCR_BASE_STARTUP_ADDR0
     value = kernel_addr & 0xffffffff;  
     vx_dcr_write(hdevice, addr, value); 
     
     
-    addr = 0x002; // VX_DCR_BASE_STARTUP_ADDR1
+    addr = VX_DCR_BASE_STARTUP_ADDR1; // 0x002 = VX_DCR_BASE_STARTUP_ADDR1
     value = kernel_addr >> 32;
     vx_dcr_write(hdevice, addr, value);
 
-    addr = 0x003; // VX_DCR_BASE_STARTUP_ARG0
+    addr = VX_DCR_BASE_STARTUP_ARG0; // 0x003 = VX_DCR_BASE_STARTUP_ARG0
     value = args_addr & 0xffffffff;  
     vx_dcr_write(hdevice, addr, value); 
     
-    
-    addr = 0x004; // VX_DCR_BASE_STARTUP_ARG0
+    addr = VX_DCR_BASE_STARTUP_ARG1; // 0x004 = VX_DCR_BASE_STARTUP_ARG0
     value = args_addr >> 32;
     vx_dcr_write(hdevice, addr, value);
 
+#ifdef TEST 
+		// Set Monitor MPM class 
+		addr = VX_DCR_BASE_MPM_CLASS;  // 0x005 = VX_DCR_BASE_MPM_CLASS
+		value = VX_DCR_MPM_CLASS_CORE; // 1 
+		vx_dcr_write(hdevice, addr, value); 
+#endif 
 
     // Reset
     addr = 0;  // when addr = 0, it means where are deasserting reset and valid
@@ -392,25 +395,9 @@ int vx_dcr_write(vx_device_h hdevice, uint32_t addr, uint32_t value){
     return 0;
 }
 
-// ADDED
-int vx_kernel_stats(vx_device_h hdevice, uint64_t *c, uint64_t *e){ 
-   if(nullptr == c) return -1; 
-
-   auto device = (vx_device*)hdevice; 
-
-   if(0 == device->cycles) return -1;
-   
-   *c = device->cycles; 
-   
-   if(nullptr != e) *e = device->exitcode; 
-
-   return 0; 
-}; 
-
 
 // Wait for device ready with milliseconds timeout
 int vx_ready_wait(vx_device_h hdevice, uint64_t timeout){
-    auto device = (vx_device*)hdevice; 
     uint32_t val;
     
     bool is_ended = false;  
@@ -431,11 +418,29 @@ int vx_ready_wait(vx_device_h hdevice, uint64_t timeout){
 				timeout -= 1; // timeout is in millseconds 
     }
 
-    vx_copy_from_dev(&device->cycles, device->mpm_buffer, 0x00, sizeof(device->cycles));
-    vx_copy_from_dev(&device->exitcode, device->mpm_buffer, 0x08, sizeof(device->exitcode));
-    
     return 0;
 }; 
+
+// query device performance counter
+int vx_mpm_query(vx_device_h hdevice, uint32_t addr, uint32_t core_id, uint64_t* value){
+    
+		auto device = (vx_device*)hdevice;
+
+		uint32_t mpm_index = addr - VX_CSR_MPM_BASE;
+    if (mpm_index > 31)
+      return -1;
+    
+    uint64_t offset = core_id * 32 * sizeof(uint64_t) + mpm_index * sizeof(uint64_t); 
+    if(0 != vx_copy_from_dev(value, device->mpm_buffer, offset, sizeof(uint64_t))){
+			return -1; 
+		};
+		
+    return 0;
+}
+
+
+
+
 
 
 int vx_upload_kernel_bytes(vx_device_h hdevice, const void* content, uint64_t size, vx_buffer_h* hbuffer) {

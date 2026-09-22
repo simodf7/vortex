@@ -17,6 +17,9 @@ ifdef ADDRESS_FLAGS
 	CXXFLAGS += $(ADDRESS_FLAGS)
 endif 	
 
+ifeq ($(TEST), y) 
+	CXXFLAGS += -DTEST
+endif 
 
 LDFLAGS += -shared
 LDFLAGS += -L$(DESTDIR)
