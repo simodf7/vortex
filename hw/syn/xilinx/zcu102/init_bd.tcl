@@ -9,11 +9,13 @@ set vcs_file    [lindex $::argv 1]
 
 set tool_dir   $::env(TOOL_DIR)
 set script_dir [ file dirname [ file normalize [ info script ] ] ]
+set ip_repo $script_dir/ip_repo
 
 puts "Using device_part=$device_part"
 puts "Using vcs_file=$vcs_file"
 puts "Using tool_dir=$tool_dir"
 puts "Using script_dir=$script_dir"
+puts "Using ip_repo=$ip_repo"
 
 
 ###########################
@@ -30,7 +32,7 @@ set vincludes_list [lindex $vlist 1]
 set vdefines_list  [lindex $vlist 2]
 
 # Create new project
-set project_name "project_1"
+set project_name "project"
 create_project $project_name $project_name -force -part $device_part
 
 # Set project board part as ZCU102
@@ -62,7 +64,7 @@ add_files -norecurse -verbose -fileset constrs_1 "$script_dir/top.xdc"
 # Import IPs #
 ##############
 
-set repo_path [file normalize "ip_repo"]
+set repo_path [file normalize $ip_repo]
 set_property ip_repo_paths [list $repo_path] [current_project]
 update_ip_catalog
 
@@ -102,7 +104,7 @@ set project_dir [get_property directory [current_project]]
 # Creating block diagram #
 ##########################
 
-source soc_bd.tcl
+source $script_dir/soc_bd.tcl
 
 set_property GENERATE_SYNTH_CHECKPOINT "1"   [get_files design_1.bd]
 set_property SYNTH_CHECKPOINT_MODE "Hierarchical" [get_files design_1.bd]
@@ -122,7 +124,7 @@ update_compile_order -fileset sources_1
 ##############
 
 set testbench "testbench"
-import_files -fileset sim_1 $project_dir/src/$testbench.v
+import_files -fileset sim_1 $project_dir/../src/$testbench.v
 set_property top testbench [get_filesets sim_1]
 
 

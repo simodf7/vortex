@@ -111,7 +111,6 @@ connect_bd_net -net ddr_rstn_Res \
 
 ### Addresses 
 
-# addresses must be chosen in pl_ddr.mk 
 
 ## VORTEX Address space 
 
@@ -128,4 +127,3 @@ assign_bd_address -offset $::env(MEM_BASE) -range $::env(MEM_SIZE) \
 assign_bd_address -offset $::env(MEM_BASE) -range $::env(MEM_SIZE) \
     -target_address_space [get_bd_addr_spaces zynq_ultra_ps_e/Data] \
 	 [get_bd_addr_segs ddr4/C0_DDR4_MEMORY_MAP/C0_DDR4_ADDRESS_BLOCK] -force 
-

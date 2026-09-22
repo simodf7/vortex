@@ -125,10 +125,10 @@ open: done.dcp
 
 
 bd: sources.txt init_bd.tcl pre_opt_hook.tcl soc_bd.tcl ip_repo top.xdc $(GLOBAL_MEM).tcl 
-	mkdir -p $(CONFIG)/bd 
-	cd $(CONFIG)/bd && \
+	mkdir -p $(CONFIG) 
+	cd $(CONFIG) && \
 	$(BD_ENV) FPU_IP=ip TOOL_DIR=$(SCRIPT_DIR) \
-	  $(VIVADO) -mode gui -source $(BUILD_DIR)/init_bd.tcl -tclargs $(DEVICE) ../sources.txt
+	  $(VIVADO) -mode gui -source $(BUILD_DIR)/init_bd.tcl -tclargs $(DEVICE) sources.txt
 
 
 TEST ?= n

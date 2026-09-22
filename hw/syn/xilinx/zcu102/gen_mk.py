@@ -4,18 +4,27 @@ import argparse
 
 
 ############ Vortex Address Space (64 bit) ########
-### Unused
-### LOCAL MEM 
-### GLOBAL MEM 
-    ### KERNEL (128 kb)  
-    ### Guard  (4 kb) 
-    ### STACK  (TOTAL THREADS * 8 kb) 
-    ### HEAP 
-    ### MPM 
-### VX CONSOLE  (IO_BASE_ADDR) 
+### Unused ###
+
+### VX CONSOLE (IO_BASE_ADDR: 0xA000_0000 M_AXI_HPM0_FPD (low) ) 
 ### DCR IP 
-### GPIO  
-### UNUSED 
+### GPIO 
+
+### UNUSED ### 
+
+### LOCAL MEM 
+
+### GLOBAL MEM 
+ # BRAM/PL_DDR: 0x4_0000_0000 M_AXI_HPM0_FPD (mid)
+ # PS_DDR: 0x8_0000_0000 S_AXI_HP0_FPD (high)  
+   
+		##  Kernel (128 kb)  
+    ##  Guard  (4 kb) 
+    ##  Stack  (TOTAL THREADS * 2 << STACK_LOG2_SIZE) 
+    ##  Heap
+    ## MPM
+
+### UNUSED ### 
 ###################################################
 
 
@@ -88,8 +97,10 @@ heap_size = mpm_base - stack_base_addr
 console_size = int(cfg["console_size"], 16) 
 dcr_size = int(cfg["dcr_size"], 16) 
 gpio_size = int(cfg["gpio_size"],16) 
+io_base_addr = int(cfg["io_base"], 16) 
 
-io_base_addr = align_up(mem_base + mem_size, console_size) 
+
+io_base_addr = align_up(io_base_addr, console_size) 
 console_base = io_base_addr
 dcr_base = align_up(console_base + console_size, dcr_size)
 gpio_base = align_up(dcr_base + dcr_size, gpio_size) 
@@ -130,6 +141,7 @@ configs.append(f"-DIO_BASE_ADDR={xlen}\\'h{io_base_addr:x}")
 configs.append(f"-DIO_MPM_ADDR={xlen}\\'h{mpm_base:x}") 
 configs.append(f"-DIO_END_ADDR={xlen}\\'h{io_end_addr:x}") 
 
+
 # L1 Cache
 l1_size = int(cfg["l1_cache_dim"])
 if(l1_size == 0): 
@@ -141,6 +153,7 @@ else:
 # Local Memory 
 if(lmem): 
 	configs.append(f"-DLMEM_LOG_SIZE={lmem_log_size}") 
+	configs.append(f"-DLMEM_BASE_ADDR={xlen}\\'h{lmem_base_addr:x}")
 else: 
 	configs.append(f"-DLMEM_DISABLE") 
 
