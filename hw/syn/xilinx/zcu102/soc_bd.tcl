@@ -44,13 +44,6 @@ set_property -dict [list \
     CONFIG.USE_BOARD_FLOW {true} \
   ] [get_bd_cells axi_gpio]
 
-## ILA 
-create_bd_cell -type ip -vlnv xilinx.com:ip:ila:6.2 ila
-set_property -dict [list \
-    CONFIG.C_MONITOR_TYPE {Native} \
-    CONFIG.C_NUM_OF_PROBES {4} \
-  ] [get_bd_cells ila]
-
 
 ## ZYNQ ULTRASCALE PS  
 # Note: Zynq Ultrascale PS IP 3:5 is available only from Vivado 2023.1 
@@ -481,10 +474,9 @@ connect_bd_intf_net -intf_net zynq_ultra_ps_e_0_M_AXI_HPM0_FPD [get_bd_intf_pins
 
 ### Port connections ### 
 
-# DCR VORTEX RESET to VORTEX and ILA-PROBE0 
+# DCR VORTEX RESET to VORTEX 
 connect_bd_net -net DCR_Vortex_0_dcr_vx_reset [get_bd_pins DCR_Vortex/dcr_vx_reset] \
-  [get_bd_pins Vortex_top/reset] \
-  [get_bd_pins ila/probe0]
+  [get_bd_pins Vortex_top/reset]
   
 
 # PROC SYS RESET: reset attivo basso
@@ -494,13 +486,12 @@ connect_bd_net -net Net [get_bd_pins proc_sys_reset/peripheral_aresetn] \
   [get_bd_pins vx_console/aresetn]
 
 # ZYNQ PL CLOCK (pl_clk0) a tutto il dominio comune: Vortex, PSR,
-# SmartConnect, GPIO, ILA, DCR, porta HPM0 della PS, vx_console.
+# SmartConnect, GPIO, DCR, porta HPM0 della PS, vx_console.
 connect_bd_net -net Net1  [get_bd_pins zynq_ultra_ps_e/pl_clk0] \
   [get_bd_pins Vortex_top/clk] \
   [get_bd_pins proc_sys_reset/slowest_sync_clk] \
   [get_bd_pins smartconnect/aclk] \
   [get_bd_pins axi_gpio/s_axi_aclk] \
-  [get_bd_pins ila/clk] \
   [get_bd_pins DCR_Vortex/s00_axi_aclk] \
   [get_bd_pins zynq_ultra_ps_e/maxihpm0_fpd_aclk] \
   [get_bd_pins vx_console/aclk]
@@ -509,22 +500,6 @@ connect_bd_net -net Net1  [get_bd_pins zynq_ultra_ps_e/pl_clk0] \
 connect_bd_net -net Vortex_top_busy  [get_bd_pins Vortex_top/busy] \
   [get_bd_pins DCR_Vortex/busy]
  
-
-# DCR VORTEX WRITE VALID to VORTEX WRITE VALID and ILA-PROBE1 
-connect_bd_net -net dcr_wr_valid_0_1  [get_bd_pins DCR_Vortex/dcr_wr_valid] \
-  [get_bd_pins Vortex_top/dcr_wr_valid] \
-  [get_bd_pins ila/probe1]
-
-# DCR VORTEX WRITE ADDRESS to VORTEX WRITE ADDRESS and ILA-PROBE2
-connect_bd_net -net dcr_wr_addr_0_1  [get_bd_pins DCR_Vortex/dcr_wr_addr] \
-  [get_bd_pins Vortex_top/dcr_wr_addr] \
-  [get_bd_pins ila/probe2]
-  
-# DCR VORTEX WRITE DATA to VORTEX WRITE DATA and ILA-PROBE3
-connect_bd_net -net dcr_wr_data_0_1  [get_bd_pins DCR_Vortex/dcr_wr_data] \
-  [get_bd_pins Vortex_top/dcr_wr_data] \
-  [get_bd_pins ila/probe3]
-
 
 # ZYNQ ULTRASCALE PL RESET to PROC SYS RESET EXTERNAL RESET INPUT   
 connect_bd_net -net zynq_ultra_ps_e_0_pl_resetn0  [get_bd_pins zynq_ultra_ps_e/pl_resetn0] \
