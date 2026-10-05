@@ -1,22 +1,24 @@
-if { $::argc != 2 } {
-    puts "ERROR: Program \"$::argv0\" requires 2 arguments!\n"
-    puts "Usage: $::argv0 <device_part> <vcs_file>\n"
+if { $::argc != 3 } {
+    puts "ERROR: Program \"$::argv0\" requires 3 arguments!\n"
+    puts "Usage: $::argv0 <device_part> <vcs_file> <config_dir>\n"
     exit
 }
 
 set device_part [lindex $::argv 0]
 set vcs_file    [lindex $::argv 1]
+set config_dir  [lindex $::argv 2] 
 
 set tool_dir   $::env(TOOL_DIR)
 set script_dir [ file dirname [ file normalize [ info script ] ] ]
 set ip_repo $script_dir/ip_repo
+set config_dir [ file normalize $config_dir] 
 
 puts "Using device_part=$device_part"
 puts "Using vcs_file=$vcs_file"
 puts "Using tool_dir=$tool_dir"
 puts "Using script_dir=$script_dir"
 puts "Using ip_repo=$ip_repo"
-
+puts "Using config_dir=$config_dir"
 
 ###########################
 ## Setup Vivado Project  ##
@@ -124,7 +126,7 @@ update_compile_order -fileset sources_1
 ##############
 
 set testbench "testbench"
-import_files -fileset sim_1 $project_dir/../src/$testbench.v
+import_files -fileset sim_1 $config_dir/src/$testbench.v
 set_property top testbench [get_filesets sim_1]
 
 

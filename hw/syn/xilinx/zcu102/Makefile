@@ -21,7 +21,7 @@ KERNEL ?= blinky
 
 # ADD: Vortex Hardware configuration file 
 
-CONFIG ?= pl_ddr
+CONFIG ?= bram_default_EXTF_4t
 
 $(CONFIG)/vortex_config.mk: $(SRC_DIR)/configs/$(CONFIG).json $(SRC_DIR)/gen_mk.py
 	mkdir -p $(CONFIG)
@@ -104,7 +104,7 @@ project.tcl: $(SRC_DIR)/project.tcl.in
 %.xdc: $(SRC_DIR)/%.xdc
 	cp $< $@
 
-.PHONY: hardware bd ip_repo host-dev
+.PHONY: hardware bd host-dev
 
 
 ip_repo: 
@@ -132,7 +132,7 @@ $(CONFIG)/sources.txt: $(CONFIG)/vortex_config.mk
 build: $(CONFIG)/done.dcp
 $(CONFIG)/done.dcp: $(CONFIG)/sources.txt project.tcl pre_opt_hook.tcl soc_bd.tcl ip_repo top.xdc $(GLOBAL_MEM).tcl
 	cd $(CONFIG) && \
-	MAX_JOBS=$(JOBS) FPU_IP=ip TOOL_DIR=$(SCRIPT_DIR) IP_REPO=$(BUILD_DIR)/ip_repo $(BD_ENV) $(VIVADO) -mode batch -source $(BUILD_DIR)/project.tcl -tclargs $(DEVICE) sources.txt
+	MAX_JOBS=$(JOBS) FPU_IP=ip TOOL_DIR=$(SCRIPT_DIR) IP_REPO=$(BUILD_DIR)/ip_repo $(BD_ENV) $(VIVADO) -mode batch -source $(BUILD_DIR)/project.tcl -tclargs $(DEVICE) sources.txt .
 	echo done > $(CONFIG)/done.dcp
 
 hardware: xsa_gen.tcl $(CONFIG)/done.dcp
@@ -147,20 +147,16 @@ open: $(CONFIG)/done.dcp
 
 
 
-BD_DIR := bd/$(CONFIG)
+BD_DIR := bd
 
 bd: $(CONFIG)/sources.txt init_bd.tcl pre_opt_hook.tcl soc_bd.tcl ip_repo top.xdc $(GLOBAL_MEM).tcl
 	mkdir -p $(BD_DIR)
 	cd $(BD_DIR) && \
 	$(BD_ENV) FPU_IP=ip TOOL_DIR=$(SCRIPT_DIR) IP_REPO=$(BUILD_DIR)/ip_repo \
-	  $(VIVADO) -mode gui -source $(BUILD_DIR)/init_bd.tcl -tclargs $(DEVICE) $(BUILD_DIR)/$(CONFIG)/sources.txt
-
+	  $(VIVADO) -mode gui -source $(BUILD_DIR)/init_bd.tcl -tclargs $(DEVICE) $(abspath $(CONFIG))/sources.txt $(abspath $(CONFIG))
 
 clean-bd:
 	rm -rf $(BD_DIR)
-
-clean-bd-all:
-	rm -rf bd
 
 clean-config:
 	rm -rf $(CONFIG) $(BD_DIR)
@@ -176,6 +172,6 @@ clean:
 	rm -rf .Xil vivado_*.log vivado_*.jou vivado_*.str
 
 # clean all 
-distclean: clean clean-host clean-bd-all
+distclean: clean clean-host clean-bd
 	rm -rf $(CONFIG)
 
