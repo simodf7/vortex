@@ -105,36 +105,10 @@ project.tcl: $(SRC_DIR)/project.tcl.in
 	cp $< $@
 
 .PHONY: hardware bd ip_repo host-dev
+
+
 ip_repo: 
 	cp -r $(SRC_DIR)/$@ .
-
-gen-sources: $(CONFIG)/vortex_config.mk sources.txt
-sources.txt:
-	$(SCRIPT_DIR)/gen_sources.sh $(CFLAGS) -P -C$(CONFIG)/src -O$(CONFIG)/sources.txt
-
-build: done.dcp
-done.dcp: sources.txt project.tcl pre_opt_hook.tcl soc_bd.tcl ip_repo top.xdc $(GLOBAL_MEM).tcl
-	cd $(CONFIG) && \
-	MAX_JOBS=$(JOBS) FPU_IP=ip TOOL_DIR=$(SCRIPT_DIR) IP_REPO=$(BUILD_DIR)/ip_repo $(BD_ENV) $(VIVADO) -mode batch -source $(BUILD_DIR)/project.tcl -tclargs $(DEVICE) sources.txt
-	echo done > done.dcp
-
-hardware: xsa_gen.tcl done.dcp 
-	cd $(CONFIG) && \
-	MAX_JOBS=$(JOBS) TOOL_DIR=$(SCRIPT_DIR) $(VIVADO) -mode batch -source $(BUILD_DIR)/xsa_gen.tcl -tclargs project/project.xpr 
-
-run: simulate.tcl done.dcp
-	MAX_JOBS=$(JOBS) TOOL_DIR=$(SCRIPT_DIR) $(VIVADO) -mode batch -source simulate.tcl -tclargs project_1/project_1.xpr 50000ns
-
-open: done.dcp
-	TOOL_DIR=$(SCRIPT_DIR) $(VIVADO) project_1/project_1.xpr &
-
-
-bd: sources.txt init_bd.tcl pre_opt_hook.tcl soc_bd.tcl ip_repo top.xdc $(GLOBAL_MEM).tcl 
-	mkdir -p $(CONFIG) 
-	cd $(CONFIG) && \
-	$(BD_ENV) FPU_IP=ip TOOL_DIR=$(SCRIPT_DIR) \
-	  $(VIVADO) -mode gui -source $(BUILD_DIR)/init_bd.tcl -tclargs $(DEVICE) sources.txt
-
 
 
 host-dev: $(CONFIG)/vortex_config.mk 
@@ -150,16 +124,58 @@ host-dev: $(CONFIG)/vortex_config.mk
 	cp $(ROOT_DIR)/tests/regression/$(KERNEL)/kernel.vxbin host-dev/kernel.vxbin 
 	cp $(ROOT_DIR)/tests/regression/$(KERNEL)/kernel.dump host-dev/kernel.dump 
 
-clean-bd: 
-	rm -rf $(CONFIG)/bd 
 
-clean-config: 
-	rm -rf $(CONFIG) 
+gen-sources: $(CONFIG)/sources.txt
+$(CONFIG)/sources.txt: $(CONFIG)/vortex_config.mk
+	$(SCRIPT_DIR)/gen_sources.sh $(CFLAGS) -P -C$(CONFIG)/src -O$(CONFIG)/sources.txt
 
-clean:
-	rm -rf $(KERNEL).bin kernel.bin.coe
-	rm -rf src *.txt 
-	rm -rf .Xil *.log *.jou *.dcp *.rpt
+build: $(CONFIG)/done.dcp
+$(CONFIG)/done.dcp: $(CONFIG)/sources.txt project.tcl pre_opt_hook.tcl soc_bd.tcl ip_repo top.xdc $(GLOBAL_MEM).tcl
+	cd $(CONFIG) && \
+	MAX_JOBS=$(JOBS) FPU_IP=ip TOOL_DIR=$(SCRIPT_DIR) IP_REPO=$(BUILD_DIR)/ip_repo $(BD_ENV) $(VIVADO) -mode batch -source $(BUILD_DIR)/project.tcl -tclargs $(DEVICE) sources.txt
+	echo done > $(CONFIG)/done.dcp
+
+hardware: xsa_gen.tcl $(CONFIG)/done.dcp
+	cd $(CONFIG) && \
+	MAX_JOBS=$(JOBS) TOOL_DIR=$(SCRIPT_DIR) $(VIVADO) -mode batch -source $(BUILD_DIR)/xsa_gen.tcl -tclargs project/project.xpr
+
+run: simulate.tcl $(CONFIG)/done.dcp
+	MAX_JOBS=$(JOBS) TOOL_DIR=$(SCRIPT_DIR) $(VIVADO) -mode batch -source simulate.tcl -tclargs $(CONFIG)/project/project.xpr 50000ns
+
+open: $(CONFIG)/done.dcp
+	cd $(CONFIG) && TOOL_DIR=$(SCRIPT_DIR) $(VIVADO) project/project.xpr &
+
+
+
+BD_DIR := bd/$(CONFIG)
+
+bd: $(CONFIG)/sources.txt init_bd.tcl pre_opt_hook.tcl soc_bd.tcl ip_repo top.xdc $(GLOBAL_MEM).tcl
+	mkdir -p $(BD_DIR)
+	cd $(BD_DIR) && \
+	$(BD_ENV) FPU_IP=ip TOOL_DIR=$(SCRIPT_DIR) IP_REPO=$(BUILD_DIR)/ip_repo \
+	  $(VIVADO) -mode gui -source $(BUILD_DIR)/init_bd.tcl -tclargs $(DEVICE) $(BUILD_DIR)/$(CONFIG)/sources.txt
+
+
+clean-bd:
+	rm -rf $(BD_DIR)
+
+clean-bd-all:
+	rm -rf bd
+
+clean-config:
+	rm -rf $(CONFIG) $(BD_DIR)
+
+clean-host:
 	rm -rf host-dev
-	rm -rf *.mk *.tcl *.xdc
-	rm -rf vivado_* ip_repo
+
+# clean the common files only
+clean:
+	rm -f $(KERNEL).bin kernel.bin.coe
+	rm -f *.tcl *.xdc
+	rm -rf ip_repo
+	rm -rf .Xil vivado_*.log vivado_*.jou vivado_*.str
+
+# clean all 
+distclean: clean clean-host clean-bd-all
+	rm -rf $(CONFIG)
+
