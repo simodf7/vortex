@@ -477,13 +477,28 @@ connect_bd_intf_net -intf_net zynq_ultra_ps_e_0_M_AXI_HPM0_FPD [get_bd_intf_pins
 # DCR VORTEX RESET to VORTEX 
 connect_bd_net -net DCR_Vortex_0_dcr_vx_reset [get_bd_pins DCR_Vortex/dcr_vx_reset] \
   [get_bd_pins Vortex_top/reset]
-  
 
+
+# VORTEX BUSY SIGNAL to DCR VORTEX 
+connect_bd_net -net Vortex_top_busy  [get_bd_pins Vortex_top/busy] \
+  [get_bd_pins DCR_Vortex/busy]
+
+# DCR VORTEX -> VORTEX (bus di scrittura dei DCR)
+connect_bd_net -net dcr_wr_valid [get_bd_pins DCR_Vortex/dcr_wr_valid] [get_bd_pins Vortex_top/dcr_wr_valid]
+connect_bd_net -net dcr_wr_addr  [get_bd_pins DCR_Vortex/dcr_wr_addr]  [get_bd_pins Vortex_top/dcr_wr_addr]
+connect_bd_net -net dcr_wr_data  [get_bd_pins DCR_Vortex/dcr_wr_data]  [get_bd_pins Vortex_top/dcr_wr_data]
+
+
+# ZYNQ ULTRASCALE PL RESET to PROC SYS RESET EXTERNAL RESET INPUT   
+connect_bd_net -net zynq_ultra_ps_e_0_pl_resetn0  [get_bd_pins zynq_ultra_ps_e/pl_resetn0] \
+  [get_bd_pins proc_sys_reset/ext_reset_in]
+  
 # PROC SYS RESET: reset attivo basso
 connect_bd_net -net Net [get_bd_pins proc_sys_reset/peripheral_aresetn] \
   [get_bd_pins axi_gpio/s_axi_aresetn] \
   [get_bd_pins DCR_Vortex/s00_axi_aresetn] \
-  [get_bd_pins vx_console/aresetn]
+  [get_bd_pins vx_console/aresetn] \
+  [get_bd_pins smartconnect/aresetn] 
 
 # ZYNQ PL CLOCK (pl_clk0) a tutto il dominio comune: Vortex, PSR,
 # SmartConnect, GPIO, DCR, porta HPM0 della PS, vx_console.
@@ -496,14 +511,6 @@ connect_bd_net -net Net1  [get_bd_pins zynq_ultra_ps_e/pl_clk0] \
   [get_bd_pins zynq_ultra_ps_e/maxihpm0_fpd_aclk] \
   [get_bd_pins vx_console/aclk]
 
-# VORTEX BUSY SIGNAL to DCR VORTEX 
-connect_bd_net -net Vortex_top_busy  [get_bd_pins Vortex_top/busy] \
-  [get_bd_pins DCR_Vortex/busy]
- 
-
-# ZYNQ ULTRASCALE PL RESET to PROC SYS RESET EXTERNAL RESET INPUT   
-connect_bd_net -net zynq_ultra_ps_e_0_pl_resetn0  [get_bd_pins zynq_ultra_ps_e/pl_resetn0] \
-  [get_bd_pins proc_sys_reset/ext_reset_in]
 
 # VX_console port to external port 
 connect_bd_net [get_bd_ports uart_pl_tx] [get_bd_pins vx_console/uart_tx]
