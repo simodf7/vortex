@@ -158,6 +158,12 @@ else:
 	configs.append(f"-DLMEM_DISABLE") 
 
 
+# Extra configuration flags
+extra_cflags = cfg["extra_cflags"] 
+if len(extra_cflags) != 0: 
+  for f in extra_cflags: 
+    configs.append(f"-D{f}") 
+
 rows.append("CONFIGS += " + " ".join(configs))
 
 

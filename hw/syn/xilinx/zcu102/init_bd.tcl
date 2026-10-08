@@ -70,30 +70,7 @@ set repo_path [file normalize $ip_repo]
 set_property ip_repo_paths [list $repo_path] [current_project]
 update_ip_catalog
 
-# create fpu ip
-if {[info exists ::env(FPU_IP)]} {
-  set ip_dir $::env(FPU_IP)
-  set ::argv [list $ip_dir $device_part]
-  set ::argc 2
-  puts $device_part
-  source ${tool_dir}/xilinx_ip_gen.tcl
-}
-
-# add fpu ip
-if {[info exists ::env(FPU_IP)]} {
-  set ip_dir $::env(FPU_IP)
-
-  set xci_list [list \
-      "${ip_dir}/xil_fma/xil_fma.xci" \
-      "${ip_dir}/xil_fdiv/xil_fdiv.xci" \
-      "${ip_dir}/xil_fsqrt/xil_fsqrt.xci" \
-      "${ip_dir}/xil_fmul/xil_fmul.xci" \
-      "${ip_dir}/xil_fadd/xil_fadd.xci"
-  ]
-
-  import_ip $xci_list
-}
-
+source $script_dir/import_ip.tcl
 
 ######################
 # Project properties #
