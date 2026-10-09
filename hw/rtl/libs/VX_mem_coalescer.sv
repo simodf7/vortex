@@ -400,5 +400,19 @@ module VX_mem_coalescer #(
     end
 `endif
 
+`ifdef CHIPSCOPE
+`ifdef DBG_SCOPE_COALESCER
+    ila_coalescer ila_coalescer_inst (
+        .clk    (clk),
+        .probe0 ({in_req_valid, in_req_rw, in_req_mask, in_req_addr, in_req_byteen, in_req_ready}),  // Output of LMEM_switch 
+        .probe1 ({out_req_valid, out_req_rw, out_req_mask, out_req_addr, out_req_byteen, out_req_ready}), // output to DCACHE
+        .probe2 ({state_r, batch_valid_r, addr_matches_r, req_rem_mask_r, seed_addr_r}), // Internal Registers
+        .probe3 (in_req_data), // input 
+        .probe4 (out_req_data)  // output 
+    );
+`endif
+`endif
+
+
 endmodule
 `TRACING_ON

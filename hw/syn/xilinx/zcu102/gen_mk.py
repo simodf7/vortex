@@ -219,6 +219,7 @@ rows.append("ADDRESS_FLAGS := " + " ".join(flags))
 ## BLOCK DESIGN 
 
 global_mem = cfg["global_mem"] 
+debug_ila = 1 if cfg["debug_ila"] else 0 
 rows.append(f"GLOBAL_MEM := {global_mem}") 
 rows.append(f"MEM_BASE := {mem_base:#x}") 
 rows.append(f"MEM_SIZE := {mem_size:#x}") 
@@ -228,8 +229,11 @@ rows.append(f"GPIO_ADDR := {gpio_base:#x}")
 rows.append(f"GPIO_SIZE := {gpio_size:#x}") 
 rows.append(f"CONSOLE_ADDR := {console_base:#x}") 
 rows.append(f"CONSOLE_SIZE := {console_size:#x}") 
+rows.append(f"DEBUG_ILA := {debug_ila}") 
 
-var = ["GLOBAL_MEM", "MEM_BASE", "MEM_SIZE", "DCR_ADDR", "DCR_SIZE", "GPIO_ADDR", "GPIO_SIZE", "CONSOLE_ADDR", "CONSOLE_SIZE"] 
+var = ["GLOBAL_MEM", "MEM_BASE", "MEM_SIZE", "DCR_ADDR", "DCR_SIZE", 
+        "GPIO_ADDR", "GPIO_SIZE", "CONSOLE_ADDR", "CONSOLE_SIZE", 
+        "DEBUG_ILA"] 
 
 rows.append("BD_ENV = " + " ".join(f"{x}=$({x})" for x in var)) 
 
