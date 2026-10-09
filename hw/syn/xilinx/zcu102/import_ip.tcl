@@ -49,10 +49,11 @@ foreach def $vdefines_list {
   if { $name == "DBG_SCOPE_ISSUE" } { set ila_issue 1 }
   if { $name == "DBG_SCOPE_COALESCER"} { set ila_coalescer 1 } 
 }
+
 puts "import_ip.tcl: FPU_IP=[info exists ::env(FPU_IP)] chipscope=$chipscope lsu=$ila_lsu issue=$ila_issue coalescer=$ila_coalescer"
 
 if { $chipscope == 1 } {
   if { $ila_lsu == 1 }   { create_ila ila_lsu   1024 {1024 1024 512} }
   if { $ila_issue == 1 } { create_ila ila_issue 1024 {512 512 1024 512} }
-  if { $ila_coalescer == 1 } { create_ila ila_coalescer 1024 {256 128 64 256 256}
+  if { $ila_coalescer == 1 } { create_ila ila_coalescer 1024 {256 128 64 256 256} }
 }
