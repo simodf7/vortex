@@ -40,17 +40,19 @@ proc create_ila {name depth widths} {
 set chipscope 0
 set ila_lsu   0
 set ila_issue 0
+set ila_coalescer 0 
 
 foreach def $vdefines_list {
   set name [lindex [split $def "="] 0]
   if { $name == "CHIPSCOPE" }       { set chipscope 1 }
   if { $name == "DBG_SCOPE_LSU" }   { set ila_lsu 1 }
   if { $name == "DBG_SCOPE_ISSUE" } { set ila_issue 1 }
+  if { $name == "DBG_SCOPE_COALESCER"} { set ila_coalescer 1 } 
 }
-puts "import_ip.tcl: FPU_IP=[info exists ::env(FPU_IP)] chipscope=$chipscope lsu=$ila_lsu issue=$ila_issue"
-
+puts "import_ip.tcl: FPU_IP=[info exists ::env(FPU_IP)] chipscope=$chipscope lsu=$ila_lsu issue=$ila_issue coalescer=$ila_coalescer"
 
 if { $chipscope == 1 } {
   if { $ila_lsu == 1 }   { create_ila ila_lsu   1024 {1024 1024 512} }
   if { $ila_issue == 1 } { create_ila ila_issue 1024 {512 512 1024 512} }
+  if { $ila_coalescer == 1 } { create_ila ila_coalescer 1024 {256 128 64 256 256}
 }
