@@ -21,7 +21,10 @@ connect_bd_intf_net -intf_net smartconnect_M00_AXI [get_bd_intf_pins smartconnec
 ### Port connections 
 ## PL clock -> S_AXI_HP0_FPD clock  
 connect_bd_net [get_bd_pins zynq_ultra_ps_e/pl_clk0] [get_bd_pins zynq_ultra_ps_e/saxihp0_fpd_aclk]
- 
+
+## PSR Reset -> ARESETN smartconnect
+connect_bd_net [get_bd_pins proc_sys_reset/peripheral_aresetn] \
+               [get_bd_pins smartconnect/aresetn]
 
 ### Addresses 
 

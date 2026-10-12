@@ -497,8 +497,7 @@ connect_bd_net -net zynq_ultra_ps_e_0_pl_resetn0  [get_bd_pins zynq_ultra_ps_e/p
 connect_bd_net -net Net [get_bd_pins proc_sys_reset/peripheral_aresetn] \
   [get_bd_pins axi_gpio/s_axi_aresetn] \
   [get_bd_pins DCR_Vortex/s00_axi_aresetn] \
-  [get_bd_pins vx_console/aresetn] \
-  [get_bd_pins smartconnect/aresetn] 
+  [get_bd_pins vx_console/aresetn]
 
 # ZYNQ PL CLOCK (pl_clk0) a tutto il dominio comune: Vortex, PSR,
 # SmartConnect, GPIO, DCR, porta HPM0 della PS, vx_console.

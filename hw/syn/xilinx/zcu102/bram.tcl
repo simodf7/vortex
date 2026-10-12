@@ -54,7 +54,7 @@ connect_bd_intf_net -intf_net smartconnect_M00_AXI \
 # Reset
 connect_bd_net [get_bd_pins proc_sys_reset/peripheral_aresetn] \
                [get_bd_pins axi_bram_ctrl/s_axi_aresetn] \
-	       [get_bd_pins smartconnect/aresetn] 
+	             [get_bd_pins smartconnect/aresetn] 
 
 # Clock  
 connect_bd_net [get_bd_pins zynq_ultra_ps_e/pl_clk0] \
