@@ -1,0 +1,7 @@
+the_ROM_image:
+{
+    [bootloader, destination_cpu=a53-0] bare/fsbl.elf
+    [pmufw_image] bare/pmufw.elf
+    [destination_device=pl] bare/design_1_wrapper.bit
+    [destination_cpu=a53-0, exception_level=el-3] bare/app.elf
+}
