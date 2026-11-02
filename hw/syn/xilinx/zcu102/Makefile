@@ -7,7 +7,12 @@ DEVICE ?= xczu9eg-ffvb1156-2-e
 MAX_JOBS ?= 2
 NCPUS := $(shell lscpu | grep "^Core(s) per socket:" | awk '{print $$4}')
 JOBS ?= $(shell echo $$(( $(NCPUS) > $(MAX_JOBS) ? $(MAX_JOBS) : $(NCPUS) )))
+
+# TOOLS 
 VIVADO := $(XILINX_VIVADO)/bin/vivado
+VITIS := $(XILINX_VITIS)/bin/vitis
+XSCT := $(XILINX_VITIS)/bin/xsct
+BOOTGEN := $(XILINX_VIVADO)/bin/bootgen
 
 SRC_DIR := $(VORTEX_HOME)/hw/syn/xilinx/zcu102
 RTL_DIR := $(VORTEX_HOME)/hw/rtl
@@ -15,13 +20,13 @@ DPI_DIR := $(VORTEX_HOME)/hw/dpi
 AFU_DIR := $(RTL_DIR)/afu/xrt
 SCRIPT_DIR := $(VORTEX_HOME)/hw/scripts
 BUILD_DIR := $(VORTEX_HOME)/build/hw/syn/xilinx/zcu102
-
+TCL_DIR := $(SRC_DIR)/tcl
 
 KERNEL ?= blinky
 
 # ADD: Vortex Hardware configuration file 
 
-CONFIG ?= bram_default_EXTF_4t
+CONFIG ?= bram
 
 $(CONFIG)/vortex_config.mk: $(SRC_DIR)/configs/$(CONFIG).json $(SRC_DIR)/gen_mk.py
 	mkdir -p $(CONFIG)
@@ -36,6 +41,7 @@ TEST ?= n
 
 # include paths
 FPU_INCLUDE = -I$(RTL_DIR)/fpu
+
 ifneq (,$(findstring -DFPU_FPNEW, $(CONFIGS)))
 	FPU_INCLUDE += -J$(THIRD_PARTY_DIR)/cvfpu/src/common_cells/include -J$(THIRD_PARTY_DIR)/cvfpu/src/common_cells/src -J$(THIRD_PARTY_DIR)/cvfpu/src/fpu_div_sqrt_mvp/hdl -J$(THIRD_PARTY_DIR)/cvfpu/src
 endif
@@ -86,9 +92,9 @@ all: build
 
 $(KERNEL).bin:
 	$(MAKE) -C $(ROOT_DIR)/kernel clean
-	$(MAKE) -C $(ROOT_DIR)/kernel KERN_ADDRESS_FLAGS="$(KERN_ADDRESS_FLAGS)"
+	$(MAKE) -C $(ROOT_DIR)/kernel CONFIG_FLAGS="$(CONFIG_FLAGS)"
 	$(MAKE) -C $(ROOT_DIR)/tests/kernel/$(KERNEL) clean
-	$(MAKE) -C $(ROOT_DIR)/tests/kernel/$(KERNEL) KERN_ADDRESS_FLAGS="$(KERN_ADDRESS_FLAGS)"
+	$(MAKE) -C $(ROOT_DIR)/tests/kernel/$(KERNEL) CONFIG_FLAGS="$(CONFIG__FLAGS)"
 	cp $(ROOT_DIR)/tests/kernel/$(KERNEL)/$(KERNEL).bin $(KERNEL).bin
 
 kernel.bin.coe: $(KERNEL).bin
@@ -98,25 +104,23 @@ kernel.bin.coe: $(KERNEL).bin
 project.tcl: $(SRC_DIR)/project.tcl.in
 	sed 's|@VORTEX_HOME@|$(VORTEX_HOME)|g; s|@XLEN@|$(XLEN)|g; s|@BUILDDIR@|$(CURDIR)|g' $< > $@
 
-%.tcl: $(SRC_DIR)/%.tcl 
+%.tcl: $(TCL_DIR)/%.tcl
 	cp $< $@
 
 %.xdc: $(SRC_DIR)/%.xdc
 	cp $< $@
 
-.PHONY: hardware bd host-dev
-
+.PHONY: hardware bd host-dev nodriver bare
 
 ip_repo: 
 	cp -r $(SRC_DIR)/$@ .
 
-
 host-dev: $(CONFIG)/vortex_config.mk 
 	$(MAKE) -C $(ROOT_DIR)/kernel clean
-	$(MAKE) -C $(ROOT_DIR)/kernel KERN_ADDRESS_FLAGS="$(KERN_ADDRESS_FLAGS)"
+	$(MAKE) -C $(ROOT_DIR)/kernel CONFIG_FLAGS="$(CONFIG_FLAGS)"
 	mkdir -p host-dev 
 	$(MAKE) -C $(ROOT_DIR)/runtime/soc clean 
-	TEST=$(TEST) $(MAKE) -C $(ROOT_DIR)/runtime/soc ADDRESS_FLAGS="$(ADDRESS_FLAGS)"
+	TEST=$(TEST) $(MAKE) -C $(ROOT_DIR)/runtime/soc CONFIG_FLAGS="$(CONFIG_FLAGS)"
 	cp $(ROOT_DIR)/runtime/libvortex-soc.so host-dev/libvortex-soc.so 	
 	$(MAKE) -C $(ROOT_DIR)/tests/regression/$(KERNEL) clean
 	TEST=$(TEST) $(MAKE) -C $(ROOT_DIR)/tests/regression/$(KERNEL) STARTUP_ADDR=$(STARTUP_ADDR) 
@@ -124,13 +128,42 @@ host-dev: $(CONFIG)/vortex_config.mk
 	cp $(ROOT_DIR)/tests/regression/$(KERNEL)/kernel.vxbin host-dev/kernel.vxbin 
 	cp $(ROOT_DIR)/tests/regression/$(KERNEL)/kernel.dump host-dev/kernel.dump 
 
+nodriver: $(CONFIG)/vortex_config.mk 
+	mkdir -p nodriver
+	$(MAKE) -C $(ROOT_DIR)/kernel clean
+	$(MAKE) -C $(ROOT_DIR)/runtime/nodriver clean
+	$(MAKE) -C $(ROOT_DIR)/tests/nodriver/$(KERNEL) clean 
+	$(MAKE) -C $(ROOT_DIR)/kernel CONFIG_FLAGS="$(CONFIG_FLAGS)"
+	TEST=$(TEST) $(MAKE) -C $(ROOT_DIR)/runtime/nodriver CONFIG_FLAGS="$(CONFIG_FLAGS)" STARTUP_ADDR=$(STARTUP_ADDR) 
+	TEST=$(TEST) $(MAKE) -C $(ROOT_DIR)/tests/nodriver/$(KERNEL) CONFIG_FLAGS="$(CONFIG_FLAGS)" STARTUP_ADDR=$(STARTUP_ADDR) 
+	cp $(ROOT_DIR)/tests/nodriver/$(KERNEL)/$(KERNEL) nodriver/$(KERNEL) 
+	cp $(ROOT_DIR)/tests/nodriver/$(KERNEL)/kernel.dump nodriver/kernel.dump 
+	
 
+SD_DEV ?= /dev/sdb
+bare: $(CONFIG)/vortex_config.mk build_platform.tcl
+	$(MAKE) -C $(BUILD_DIR)/bare clean
+	$(MAKE) -C $(ROOT_DIR)/kernel clean
+	$(MAKE) -C $(ROOT_DIR)/runtime/bare clean
+	CONFIG=$(CONFIG) $(XSCT) build_platform.tcl bare
+	rm -rf bare/tmp
+	$(MAKE) -C $(BUILD_DIR)/bare SW_CONFIGS="$(SW_CONFIGS)"
+	$(MAKE) -C $(ROOT_DIR)/tests/bare/$(KERNEL) clean 
+	$(MAKE) -C $(ROOT_DIR)/kernel SW_CONFIGS="$(SW_CONFIGS)"
+	TEST=$(TEST) $(MAKE) -C $(ROOT_DIR)/runtime/bare SW_CONFIGS="$(SW_CONFIGS)" STARTUP_ADDR=$(STARTUP_ADDR) 
+	TEST=$(TEST) $(MAKE) -C $(ROOT_DIR)/tests/bare/$(KERNEL) SW_CONFIGS="$(SW_CONFIGS)" STARTUP_ADDR=$(STARTUP_ADDR) 
+	cp $(ROOT_DIR)/tests/bare/$(KERNEL)/$(KERNEL) bare/app.elf
+	cp $(ROOT_DIR)/tests/bare/$(KERNEL)/kernel.dump bare/kernel.dump
+	$(BOOTGEN) -arch zynqmp -image $(SRC_DIR)/bare/boot.bif -o BOOT.BIN -w on 
+	mv BOOT.BIN bare
+	sudo $(SRC_DIR)/bare/sd_load.sh $(SD_DEV) bare
+	
 gen-sources: $(CONFIG)/sources.txt
 $(CONFIG)/sources.txt: $(CONFIG)/vortex_config.mk
 	$(SCRIPT_DIR)/gen_sources.sh $(CFLAGS) -P -C$(CONFIG)/src -O$(CONFIG)/sources.txt
 
 build: $(CONFIG)/done.dcp
-$(CONFIG)/done.dcp: $(CONFIG)/sources.txt import_ip.tcl project.tcl pre_opt_hook.tcl soc_bd.tcl ip_repo top.xdc $(GLOBAL_MEM).tcl
+$(CONFIG)/done.dcp: $(CONFIG)/sources.txt import_ip.tcl project.tcl pre_opt_hook.tcl soc_bd.tcl ip_repo top.xdc $(GLOBAL_MEM).tcl debug.tcl 
 	cd $(CONFIG) && \
 	MAX_JOBS=$(JOBS) FPU_IP=ip TOOL_DIR=$(SCRIPT_DIR) IP_REPO=$(BUILD_DIR)/ip_repo $(BD_ENV) $(VIVADO) -mode batch -source $(BUILD_DIR)/project.tcl -tclargs $(DEVICE) sources.txt .
 	echo done > $(CONFIG)/done.dcp
@@ -149,11 +182,12 @@ open: $(CONFIG)/done.dcp
 
 BD_DIR := bd
 
-bd: $(CONFIG)/sources.txt import_ip.tcl init_bd.tcl pre_opt_hook.tcl soc_bd.tcl ip_repo top.xdc $(GLOBAL_MEM).tcl
+bd: $(CONFIG)/sources.txt import_ip.tcl init_bd.tcl debug.tcl pre_opt_hook.tcl soc_bd.tcl ip_repo top.xdc $(GLOBAL_MEM).tcl
 	mkdir -p $(BD_DIR)
 	cd $(BD_DIR) && \
 	$(BD_ENV) FPU_IP=ip TOOL_DIR=$(SCRIPT_DIR) IP_REPO=$(BUILD_DIR)/ip_repo \
 	  $(VIVADO) -mode gui -source $(BUILD_DIR)/init_bd.tcl -tclargs $(DEVICE) $(abspath $(CONFIG))/sources.txt $(abspath $(CONFIG))
+
 
 clean-bd:
 	rm -rf $(BD_DIR)
@@ -161,15 +195,13 @@ clean-bd:
 clean-config:
 	rm -rf $(CONFIG) $(BD_DIR)
 
-clean-host:
-	rm -rf host-dev
-
 # clean the common files only
 clean:
 	rm -f $(KERNEL).bin kernel.bin.coe
 	rm -f *.tcl *.xdc
 	rm -rf ip_repo
 	rm -rf .Xil vivado_*.log vivado_*.jou vivado_*.str
+	rm -rf bare host-dev nodriver
 
 # clean all 
 distclean: clean clean-host clean-bd
