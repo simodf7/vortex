@@ -26,8 +26,8 @@ typedef struct {
 
 int vortex_open(vx_device *vx_dev); 
 int vortex_close(vx_device *vx_dev);  
-int vortex_read(vx_device *vx_dev, char *buffer, size_t count, size_t offset); 
-int vortex_write(vx_device *vx_dev, const char *buffer, size_t count, size_t offset); 
+int vortex_read(vx_device *vx_dev, void *buffer, size_t count, size_t offset); 
+int vortex_write(vx_device *vx_dev, const void *buffer, size_t count, size_t offset); 
 int vortex_writeDCR(vx_device *vx_dev, uint32_t dcr_data, uint32_t dcr_valaddr);  
 int vortex_readDCR(vx_device *vx_dev, uint32_t *dcr_data, uint32_t *dcr_valaddr); 
 

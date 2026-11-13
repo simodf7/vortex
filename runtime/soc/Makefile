@@ -13,8 +13,8 @@ CXXFLAGS += -DXLEN_$(XLEN)
 CXXFLAGS += $(CONFIGS)
 
 # from hw/syn/xilinx/zcu102
-ifdef ADDRESS_FLAGS
-	CXXFLAGS += $(ADDRESS_FLAGS)
+ifdef CONFIG_FLAGS
+	CXXFLAGS += $(CONFIG_FLAGS)
 endif 	
 
 ifeq ($(TEST), y) 

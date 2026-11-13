@@ -339,7 +339,7 @@ int vx_start(vx_device_h hdevice, vx_buffer_h hkernel, vx_buffer_h harguments){
 #ifdef TEST 
 		// Set Monitor MPM class 
 		addr = VX_DCR_BASE_MPM_CLASS;  // 0x005 = VX_DCR_BASE_MPM_CLASS
-		value = VX_DCR_MPM_CLASS_CORE; // 1 
+		value = VX_DCR_MPM_CLASS_MEM; // 2 
 		vx_dcr_write(hdevice, addr, value); 
 #endif 
 

@@ -110,13 +110,11 @@ io_end_addr = gpio_base + gpio_size
 
 ### Generate Makefile 
 
+
+
 rows = [] 
 
-## CONFIGS 
-
-
-
-configs = []
+## VAR 
 
 rows.append(f"XLEN := {xlen}") 
 rows.append(f"NUM_CORES	:= {num_cores}") 
@@ -128,43 +126,87 @@ rows.append(f"STACK_LOG2_SIZE := {stack_log2_size}")
 rows.append(f"STARTUP_ADDR := {startup_addr:#x}")
 
 
-configs.append(f"-DXLEN_{xlen}") 
-configs.append(f"-DNUM_CORES={num_cores}") 
-configs.append(f"-DNUM_THREADS={num_threads}") 
-configs.append(f"-DNUM_WARPS={num_warps}") 
-configs.append(f"-DNUM_CLUSTERS={num_cluster}") 
-configs.append(f"-DNUM_SOCKETS={num_sockets}") 
-configs.append(f"-DSTACK_LOG2_SIZE={stack_log2_size}") 
-configs.append(f"-DSTARTUP_ADDR={xlen}\\'h{startup_addr:x}") 
-configs.append(f"-DSTACK_BASE_ADDR={xlen}\\'h{stack_base_addr:x}") 
-configs.append(f"-DIO_BASE_ADDR={xlen}\\'h{io_base_addr:x}") 
-configs.append(f"-DIO_MPM_ADDR={xlen}\\'h{mpm_base:x}") 
-configs.append(f"-DIO_END_ADDR={xlen}\\'h{io_end_addr:x}") 
+## COMMON FLAGS
 
+common = [] 
+
+common.append(f"-DXLEN_{xlen}") 
+common.append(f"-DNUM_CORES={num_cores}") 
+common.append(f"-DNUM_THREADS={num_threads}") 
+common.append(f"-DNUM_WARPS={num_warps}") 
+common.append(f"-DNUM_CLUSTERS={num_cluster}") 
+common.append(f"-DNUM_SOCKETS={num_sockets}") 
+common.append(f"-DSTACK_LOG2_SIZE={stack_log2_size}") 
+
+rows.append("COMMON_FLAGS := " + " ".join(common))
+
+
+
+## HW FLAGS 
+
+hw = []
 
 # L1 Cache
 l1_size = int(cfg["l1_cache_dim"])
 if(l1_size == 0): 
-	configs.append(f"-DL1_DISABLE") 
+	hw.append(f"-DL1_DISABLE") 
 else:
-	configs.append(f"-DICACHE_SIZE={l1_size}") 
-	configs.append(f"-DDCACHE_SIZE={l1_size}") 
+	hw.append(f"-DICACHE_SIZE={l1_size}") 
+	hw.append(f"-DDCACHE_SIZE={l1_size}") 
 
 # Local Memory 
 if(lmem): 
-	configs.append(f"-DLMEM_LOG_SIZE={lmem_log_size}") 
-	configs.append(f"-DLMEM_BASE_ADDR={xlen}\\'h{lmem_base_addr:x}")
+	hw.append(f"-DLMEM_LOG_SIZE={lmem_log_size}") 
+	hw.append(f"-DLMEM_BASE_ADDR={xlen}\\'h{lmem_base_addr:x}")
 else: 
-	configs.append(f"-DLMEM_DISABLE") 
+	hw.append(f"-DLMEM_DISABLE") 
 
 
 # Extra configuration flags
 extra_cflags = cfg["extra_cflags"] 
 if len(extra_cflags) != 0: 
   for f in extra_cflags: 
-    configs.append(f"-D{f}") 
+    hw.append(f"-D{f}") 
 
-rows.append("CONFIGS += " + " ".join(configs))
+rows.append("HW_ONLY_FLAGS += " + " ".join(hw))
+
+
+## ADDR HW FLAGS (verilog) 
+
+addr_hw = [] 
+
+addr_hw.append(f"-DSTARTUP_ADDR={xlen}\\'h{startup_addr:x}") 
+addr_hw.append(f"-DSTACK_BASE_ADDR={xlen}\\'h{stack_base_addr:x}") 
+addr_hw.append(f"-DIO_BASE_ADDR={xlen}\\'h{io_base_addr:x}") 
+addr_hw.append(f"-DIO_MPM_ADDR={xlen}\\'h{mpm_base:x}") 
+addr_hw.append(f"-DIO_END_ADDR={xlen}\\'h{io_end_addr:x}") 
+
+rows.append("ADDR_HW_FLAGS := " + " ".join(addr_hw)) 
+
+## ADDR SW FLAGS (C) 
+
+addr_sw = [] 
+
+addr_sw.append(f"-DSTARTUP_ADDR={startup_addr:#x}") 
+addr_sw.append(f"-DSTACK_BASE_ADDR={stack_base_addr:#x}") 
+addr_sw.append(f"-DIO_MPM_ADDR={mpm_base:#x}") 
+addr_sw.append(f"-DIO_BASE_ADDR={io_base_addr:#x}") 
+addr_sw.append(f"-DIO_END_ADDR={io_end_addr:#x}")
+addr_sw.append(f"-DHEAP_OFFS={heap_offs:#x}") 
+addr_sw.append(f"-DHEAP_SIZE={heap_size:#x}") 
+addr_sw.append(f"-DMEM_BASE={mem_base:#x}") 
+addr_sw.append(f"-DMEM_SIZE={mem_size:#x}") 
+addr_sw.append(f"-DMPM_OFFS={mpm_offs:#x}") 
+addr_sw.append(f"-DMPM_SIZE={mpm_size:#x}") 
+addr_sw.append(f"-DDCR_BASE={dcr_base:#x}") 
+addr_sw.append(f"-DDCR_SIZE={dcr_size:#x}") 
+addr_sw.append(f"-DKERNEL_SIZE={kernel_size:#x}") 
+
+rows.append("ADDR_SW_FLAGS := " + " ".join(addr_sw)) 
+
+
+rows.append("CONFIGS := $(COMMON_FLAGS) $(ADDR_HW_FLAGS) $(HW_ONLY_FLAGS)") 
+rows.append("SW_CONFIGS := $(COMMON_FLAGS) $(ADDR_SW_FLAGS)") 
 
 
 ## EXTENSION FLAGS
@@ -190,30 +232,6 @@ for name, on in cfg["extensions"].items():
 
 rows.append("EXT_FLAGS := " + " ".join(ext_flags))
 
-## ADDRESS 
-
-flags = [] 
-
-flags.append(f"-DSTARTUP_ADDR={startup_addr:#x}") 
-flags.append(f"-DSTACK_BASE_ADDR={stack_base_addr:#x}") 
-flags.append(f"-DIO_MPM_ADDR={mpm_base:#x}") 
-flags.append(f"-DIO_BASE_ADDR={io_base_addr:#x}") 
-flags.append(f"-DIO_END_ADDR={io_end_addr:#x}") 
-
-rows.append("KERN_ADDRESS_FLAGS := " + " ".join(flags))
-
-flags = [] 
-
-flags.append(f"-DSTARTUP_ADDR={startup_addr:#x}") 
-flags.append(f"-DHEAP_OFFS={heap_offs:#x}") 
-flags.append(f"-DHEAP_SIZE={heap_size:#x}") 
-flags.append(f"-DMEM_BASE={mem_base:#x}") 
-flags.append(f"-DMEM_SIZE={mem_size:#x}") 
-flags.append(f"-DMPM_OFFS={mpm_offs:#x}") 
-flags.append(f"-DMPM_SIZE={mpm_size:#x}") 
-flags.append(f"-DKERNEL_SIZE={kernel_size:#x}") 
-
-rows.append("ADDRESS_FLAGS := " + " ".join(flags)) 
 
 
 ## BLOCK DESIGN 

@@ -10,8 +10,8 @@ endif
 
 # from hw/syn/xilinx/zcu102
 
-ifdef KERN_ADDRESS_FLAGS 
-		CFLAGS += $(KERN_ADDRESS_FLAGS) 
+ifdef SW_CONFIGS 
+		CFLAGS += $(SW_CONFIGS) 
 endif 	
 
 

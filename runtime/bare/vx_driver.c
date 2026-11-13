@@ -39,7 +39,7 @@ int vortex_close(vx_device *vx_dev) {
 
 
 // Read from MEM 
-int vortex_read(vx_device *vx_dev, char *buffer, size_t count, size_t offset){ 
+int vortex_read(vx_device *vx_dev, void *buffer, size_t count, size_t offset){ 
         
     if(vx_dev == NULL) return -VXDRV_INVALID_ARG; 
 
@@ -69,7 +69,7 @@ int vortex_read(vx_device *vx_dev, char *buffer, size_t count, size_t offset){
 
 
 // Write to MEM 
-int vortex_write(vx_device *vx_dev, const char *buffer, size_t count, size_t offset){ 
+int vortex_write(vx_device *vx_dev, const void *buffer, size_t count, size_t offset){ 
   
     if(vx_dev == NULL) return -VXDRV_INVALID_ARG; 
  

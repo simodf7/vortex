@@ -4,6 +4,8 @@
 #include <vector>
 #include <vortex.h>
 #include "common.h"
+#include <VX_types.h>
+#include <chrono>
 
 #define FLOAT_ULP 6
 
@@ -13,6 +15,14 @@
 #define PRINT(x) do { std::cout << x << std::endl; } while (false)
 #endif
 
+#define MPM_QUERY(device, csr, value) \
+    do { \
+        if (0 != vx_mpm_query((device), (csr), 0, &(value))) { \
+            fprintf(stderr, "mpm_query failed for %s\n", #csr); \
+            cleanup(); \
+            return -1; \
+        } \
+    } while (false)
 
 
 #define RT_CHECK(_expr)                                         \
@@ -168,6 +178,8 @@ int main(int argc, char *argv[]) {
     h_src1[i] = Comparator<TYPE>::generate();
   }
 
+  auto t1 = std::chrono::high_resolution_clock::now();
+
   // upload source buffer0
   PRINT("upload source buffer0");
   RT_CHECK(vx_copy_to_dev(src0_buffer, h_src0.data(), 0, buf_size));
@@ -175,6 +187,8 @@ int main(int argc, char *argv[]) {
   // upload source buffer1
   PRINT("upload source buffer1");
   RT_CHECK(vx_copy_to_dev(src1_buffer, h_src1.data(), 0, buf_size));
+
+  auto t2 = std::chrono::high_resolution_clock::now();
 
   // Upload kernel binary
   PRINT("Upload kernel binary");
@@ -192,9 +206,14 @@ int main(int argc, char *argv[]) {
   PRINT("wait for completion");
   RT_CHECK(vx_ready_wait(device, VX_MAX_TIMEOUT));
 
+  auto t3 = std::chrono::high_resolution_clock::now();
+
   // download destination buffer
   PRINT("download destination buffer");
   RT_CHECK(vx_copy_from_dev(h_dst.data(), dst_buffer, 0, buf_size));
+
+  auto t4 = std::chrono::high_resolution_clock::now();
+
 
   // verify result
   PRINT("verify result");
@@ -219,13 +238,50 @@ int main(int argc, char *argv[]) {
   PRINT("PASSED!"); 
  
 #ifdef TEST
-   // IN case we are in testing, this will be the only value printed on stdout, so we can recover it from bash
-   uint64_t cycles = 0;
-   if( 0 == vx_kernel_stats(device, &cycles, nullptr)) std::cout << cycles << std::endl;
+   // IN case we are in testing, we print just the perfomance counters on stdout, so we can recover them from bash
+
+  auto t_upload = std::chrono::duration_cast<std::chrono::microseconds>(t2-t1).count();
+  auto t_download = std::chrono::duration_cast<std::chrono::microseconds>(t4-t3).count();
+
+  uint64_t mcycles = 0;
+	uint64_t minstret = 0; 
+
+	MPM_QUERY(device, VX_CSR_MCYCLE, mcycles); 
+	MPM_QUERY(device, VX_CSR_MINSTRET, minstret); 
+
+  uint64_t gmem_tot_pending_req = 0;  
+  uint64_t gmem_num_reads = 0;  
+  uint64_t gmem_num_writes = 0; 
+  uint64_t dcache_miss_r = 0;
+  uint64_t dcache_num_reads = 0;   
+
+
+  MPM_QUERY(device, VX_CSR_MPM_DCACHE_READS, dcache_num_reads);
+  MPM_QUERY(device, VX_CSR_MPM_DCACHE_MISS_R, dcache_miss_r);
+  MPM_QUERY(device, VX_CSR_MPM_MEM_READS, gmem_num_reads);
+  MPM_QUERY(device, VX_CSR_MPM_MEM_WRITES, gmem_num_writes);
+  MPM_QUERY(device, VX_CSR_MPM_MEM_LT, gmem_tot_pending_req);
+
+
+  std::cout << std::dec
+            << "vecadd" << ","
+            << size << ","
+            << mcycles << ","
+            << minstret << ","
+            << gmem_num_reads << ","
+            << gmem_num_writes << ","
+            << gmem_tot_pending_req << ","
+            << dcache_miss_r << "," 
+            << dcache_num_reads << ","
+            << t_upload << "," 
+            << t_download 
+            << std::endl;       
+
+
 #endif
 
 
   cleanup();
 
   return 0;
-}
+} 

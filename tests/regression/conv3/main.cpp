@@ -6,16 +6,32 @@
 #include <vortex.h>
 #include <cmath>
 #include "common.h"
+#include <VX_types.h>
 
 #define FLOAT_ULP 6
+
+#ifdef TEST
+#define PRINT(x) ((void)0)
+#else
+#define PRINT(x) do { std::cout << x << std::endl; } while (false)
+#endif
+
+#define MPM_QUERY(device, csr, value) \
+    do { \
+        if (0 != vx_mpm_query((device), (csr), 0, &(value))) { \
+            fprintf(stderr, "mpm_query failed for %s\n", #csr); \
+            cleanup(); \
+            return -1; \
+        } \
+    } while (false)
 
 #define RT_CHECK(_expr)                                         \
    do {                                                         \
      int _ret = _expr;                                          \
      if (0 == _ret)                                             \
        break;                                                   \
-     printf("Error: '%s' returned %d!\n", #_expr, (int)_ret);   \
-	 cleanup();			                                              \
+     fprintf(stderr, "Error: '%s' returned %d!\n", #_expr, (int)_ret); \
+     cleanup();                                                 \
      exit(-1);                                                  \
    } while (false)
 
@@ -36,7 +52,7 @@ public:
   static bool compare(int a, int b, int index, int errors) {
     if (a != b) {
       if (errors < 100) {
-        printf("*** error: [%d] expected=%d, actual=%d\n", index, b, a);
+        fprintf(stderr, "*** error: [%d] expected=%d, actual=%d\n", index, b, a);
       }
       return false;
     }
@@ -61,7 +77,7 @@ public:
     auto d = std::abs(fa.i - fb.i);
     if (d > FLOAT_ULP) {
       if (errors < 100) {
-        printf("*** error: [%d] expected=%f, actual=%f\n", index, b, a);
+        fprintf(stderr, "*** error: [%d] expected=%f, actual=%f\n", index, b, a);
       }
       return false;
     }
@@ -148,12 +164,11 @@ int main(int argc, char *argv[]) {
 
   std::srand(50);
 
-  // open device connection
-  std::cout << "open device connection" << std::endl;
+  PRINT("open device connection");
   RT_CHECK(vx_dev_open(&device));
 
-  std::cout << "data type: " << Comparator<TYPE>::type_str() << std::endl;
-  std::cout << "matrix size: " << size << "x" << size << std::endl;
+  PRINT("data type: " << Comparator<TYPE>::type_str());
+  PRINT("matrix size: " << size << "x" << size);
 
   kernel_arg.grid_dim[0] = size;
   kernel_arg.grid_dim[1] = size;
@@ -164,8 +179,7 @@ int main(int argc, char *argv[]) {
   uint32_t i_points = (size+2) * (size+2);
   uint32_t w_points = 3 * 3;
 
-  // allocate device memory
-  std::cout << "allocate device memory" << std::endl;
+  PRINT("allocate device memory");
   size_t i_nbytes = i_points * sizeof(TYPE);
   size_t w_nbytes = w_points * sizeof(TYPE);
   size_t o_nbytes = o_points * sizeof(TYPE);
@@ -180,15 +194,17 @@ int main(int argc, char *argv[]) {
     uint64_t dev_local_mem_size;
     RT_CHECK(vx_dev_caps(device, VX_CAPS_LOCAL_MEM_SIZE, &dev_local_mem_size));
     if (w_nbytes > dev_local_mem_size) {
-      std::cout << "Error: Not enough local memory: needed=" << w_nbytes << ", available=" << dev_local_mem_size << std::endl;
+      PRINT("Error: Not enough local memory: needed=" << w_nbytes << ", available=" << dev_local_mem_size);
       cleanup();
       exit(1);
     }
   }
 
-  std::cout << "dev_argI=0x" << std::hex << kernel_arg.I_addr << std::endl;
-  std::cout << "dev_argW=0x" << std::hex << kernel_arg.W_addr << std::endl;
-  std::cout << "dev_argO=0x" << std::hex << kernel_arg.O_addr << std::endl;
+  PRINT("dev_argI=0x" << std::hex << kernel_arg.I_addr);
+  PRINT("dev_argW=0x" << std::hex << kernel_arg.W_addr);
+  PRINT("dev_argO=0x" << std::hex << kernel_arg.O_addr);
+  fprintf(stderr, "O_addr=0x%lx\n", (unsigned long)kernel_arg.O_addr);
+
 
   // Generate input values
   std::vector<TYPE> h_I(i_points);
@@ -207,51 +223,71 @@ int main(int argc, char *argv[]) {
     h_W[i] = static_cast<TYPE>(rand()) / RAND_MAX;
   }
 
+
+  // DEBUG 
+  std::vector<TYPE> h_fill(o_points, -1.0);  // conv3 non produce mai valori negativi
+  RT_CHECK(vx_copy_to_dev(O_buffer, h_fill.data(), 0, o_nbytes));
+
+
+
+  auto t1 = std::chrono::high_resolution_clock::now();
+
   // upload input buffer
   {
-    std::cout << "upload source buffer" << std::endl;
+    PRINT("upload source buffer");
     RT_CHECK(vx_copy_to_dev(I_buffer, h_I.data(), 0, i_nbytes));
   }
 
   // upload weight buffer
   {
-    std::cout << "upload weight buffer" << std::endl;
+    PRINT("upload weight buffer");
     RT_CHECK(vx_copy_to_dev(W_buffer, h_W.data(), 0, w_nbytes));
   }
 
+  auto t2 = std::chrono::high_resolution_clock::now();
+
   // Upload kernel binary
-  std::cout << "Upload kernel binary" << std::endl;
+  PRINT("Upload kernel binary");
   RT_CHECK(vx_upload_kernel_file(device, kernel_file, &krnl_buffer));
 
   // upload kernel argument
-  std::cout << "upload kernel argument" << std::endl;
+  PRINT("upload kernel argument");
   RT_CHECK(vx_upload_bytes(device, &kernel_arg, sizeof(kernel_arg_t), &args_buffer));
 
+#ifndef TEST
   auto time_start = std::chrono::high_resolution_clock::now();
+#endif
 
   // start device
-  std::cout << "start device" << std::endl;
+  PRINT("start device");
   RT_CHECK(vx_start(device, krnl_buffer, args_buffer));
 
   // wait for completion
-  std::cout << "wait for completion" << std::endl;
+  PRINT("wait for completion");
   RT_CHECK(vx_ready_wait(device, VX_MAX_TIMEOUT));
 
+#ifndef TEST
   auto time_end = std::chrono::high_resolution_clock::now();
   double elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(time_end - time_start).count();
-  printf("Elapsed time: %lg ms\n", elapsed);
+  PRINT("Elapsed time: " << elapsed << " ms");
+#endif
 
   // download destination buffer
-  std::cout << "download destination buffer" << std::endl;
+  PRINT("download destination buffer");
+
+  auto t3 = std::chrono::high_resolution_clock::now();
+
   RT_CHECK(vx_copy_from_dev(h_O.data(), O_buffer, 0, o_nbytes));
 
-  // verify result
-  std::cout << "verify result" << std::endl;
-  int errors = 0;
-  {
-    std::vector<TYPE> h_ref(o_points);
-    convolution_cpu(h_ref.data(), h_I.data(), h_W.data(), size, size);
+  auto t4 = std::chrono::high_resolution_clock::now();
 
+  // verify result
+  PRINT("verify result");
+  int errors = 0;
+  std::vector<TYPE> h_ref(o_points);
+  convolution_cpu(h_ref.data(), h_I.data(), h_W.data(), size, size);
+  
+  {
     for (uint32_t i = 0; i < h_ref.size(); ++i) {
       auto ref = h_ref[i];
       auto cur = h_O[i];
@@ -261,17 +297,66 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  // cleanup
-  std::cout << "cleanup" << std::endl;
-  cleanup();
-
   if (errors != 0) {
-    std::cout << "Found " << std::dec << errors << " errors!" << std::endl;
-    std::cout << "FAILED!" << std::endl;
-    return errors;
+    fprintf(stderr,"Found %d errors!\n", errors);
+    uint64_t mw = 0, dw = 0, cm = 0; 
+    vx_mpm_query(device, VX_CSR_MPM_MEM_WRITES, 0, &mw);
+    vx_mpm_query(device, VX_CSR_MPM_DCACHE_WRITES, 0, &dw);
+    vx_mpm_query(device, VX_CSR_MPM_COALESCER_MISS, 0, &cm);
+    fprintf(stderr, "MEM_WRITES=%lu DCACHE_WRITES=%lu COALESCER_MISS=%lu \n", (unsigned long)mw, (unsigned long)dw, (unsigned long)cm);
+
+    cleanup();
+    return -1;
   }
 
-  std::cout << "PASSED!" << std::endl;
+  PRINT("PASSED!");
+
+#ifdef TEST
+
+  auto t_upload = std::chrono::duration_cast<std::chrono::microseconds>(t2-t1).count();
+  auto t_download = std::chrono::duration_cast<std::chrono::microseconds>(t4-t3).count();
+
+  uint64_t mcycles = 0;
+  uint64_t minstret = 0;
+
+  uint64_t gmem_tot_pending_req = 0;  
+  uint64_t gmem_num_reads = 0;  
+  uint64_t gmem_num_writes = 0; 
+  uint64_t dcache_miss_r = 0;
+  uint64_t dcache_num_reads = 0;   
+
+  MPM_QUERY(device, VX_CSR_MCYCLE, mcycles);
+  MPM_QUERY(device, VX_CSR_MINSTRET, minstret);
+
+  uint64_t dcache_num_writes = 0;
+  uint64_t coalescer_miss = 0;  
+  MPM_QUERY(device, VX_CSR_MPM_DCACHE_WRITES, dcache_num_writes);
+  MPM_QUERY(device, VX_CSR_MPM_DCACHE_READS, dcache_num_reads);
+  MPM_QUERY(device, VX_CSR_MPM_DCACHE_MISS_R, dcache_miss_r);
+  MPM_QUERY(device, VX_CSR_MPM_MEM_READS, gmem_num_reads);
+  MPM_QUERY(device, VX_CSR_MPM_MEM_WRITES, gmem_num_writes);
+  MPM_QUERY(device, VX_CSR_MPM_MEM_LT, gmem_tot_pending_req);
+  MPM_QUERY(device, VX_CSR_MPM_COALESCER_MISS, coalescer_miss);
+  
+  std::cout << std::dec
+            << "conv3" << ","
+            << size << ","
+            << mcycles << ","
+            << minstret << ","
+            << gmem_num_reads << ","
+            << gmem_num_writes << ","
+            << gmem_tot_pending_req << ","
+            << dcache_miss_r << "," 
+            << dcache_num_reads << ","
+            << dcache_num_writes << "," 
+            << coalescer_miss << ","   
+            << t_upload << "," 
+            << t_download 
+            << std::endl;                 
+
+#endif
+
+  cleanup();
 
   return 0;
 }

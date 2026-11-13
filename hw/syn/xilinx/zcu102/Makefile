@@ -140,8 +140,10 @@ nodriver: $(CONFIG)/vortex_config.mk
 	cp $(ROOT_DIR)/tests/nodriver/$(KERNEL)/kernel.dump nodriver/kernel.dump 
 	
 
-SD_DEV ?= /dev/sdb
-bare: $(CONFIG)/vortex_config.mk build_platform.tcl
+BOOT_IMAGE := BOOT.BIN
+bare: $(BOOT_IMAGE)
+
+$(BOOT_IMAGE): $(CONFIG)/vortex_config.mk build_platform.tcl
 	$(MAKE) -C $(BUILD_DIR)/bare clean
 	$(MAKE) -C $(ROOT_DIR)/kernel clean
 	$(MAKE) -C $(ROOT_DIR)/runtime/bare clean
@@ -154,9 +156,11 @@ bare: $(CONFIG)/vortex_config.mk build_platform.tcl
 	TEST=$(TEST) $(MAKE) -C $(ROOT_DIR)/tests/bare/$(KERNEL) SW_CONFIGS="$(SW_CONFIGS)" STARTUP_ADDR=$(STARTUP_ADDR) 
 	cp $(ROOT_DIR)/tests/bare/$(KERNEL)/$(KERNEL) bare/app.elf
 	cp $(ROOT_DIR)/tests/bare/$(KERNEL)/kernel.dump bare/kernel.dump
-	$(BOOTGEN) -arch zynqmp -image $(SRC_DIR)/bare/boot.bif -o BOOT.BIN -w on 
-	mv BOOT.BIN bare
-	sudo $(SRC_DIR)/bare/sd_load.sh $(SD_DEV) bare
+	$(BOOTGEN) -arch zynqmp -image $(SRC_DIR)/bare/boot.bif -o $(BOOT_IMAGE) -w on 
+	mv $(BOOT_IMAGE) bare
+
+run_jtag: $(BOOT_IMAGE) boot.tcl
+	$(XSCT) boot.tcl 
 	
 gen-sources: $(CONFIG)/sources.txt
 $(CONFIG)/sources.txt: $(CONFIG)/vortex_config.mk
