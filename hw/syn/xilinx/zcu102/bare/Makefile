@@ -11,7 +11,7 @@ include $(HAL_SRC_DIR)/$(CPU).mk
 
 vpath %.c $(HAL_SRC_DIR) $(TINYIO_DIR)/src
 
-OBJS := $(HAL_LIB_DIR)/hal.o $(HAL_LIB_DIR)/print.o
+OBJS := $(HAL_LIB_DIR)/hal_$(CPU).o $(HAL_LIB_DIR)/print.o
 LIB  := $(HAL_LIB_DIR)/libhal_$(CPU).a
 
 CFLAGS += -std=c11 -O2 -Wall -Wextra -ffreestanding
