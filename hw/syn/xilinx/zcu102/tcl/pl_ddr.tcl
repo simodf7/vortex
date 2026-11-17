@@ -55,18 +55,15 @@ set_property CONFIG.FREQ_HZ {300000000} [get_bd_intf_ports user_si570_sysclk]
 
 ## MIG <-> DDR physical pins 
 
-connect_bd_intf_net -intf_net ddr4_C0_DDR4 \
-    [get_bd_intf_ports ddr4_sdram_062] \
+connect_bd_intf_net [get_bd_intf_ports ddr4_sdram_062] \
     [get_bd_intf_pins ddr4/C0_DDR4]
 
 ## System Clock -> MIG 
-connect_bd_intf_net -intf_net user_si570_sysclk_1 \
-    [get_bd_intf_ports user_si570_sysclk] \
+connect_bd_intf_net [get_bd_intf_ports user_si570_sysclk] \
     [get_bd_intf_pins ddr4/C0_SYS_CLK]
 
-## SmartConnect M00 <-> MIG AXI slave port 
-connect_bd_intf_net -intf_net smartconnect_M00_AXI \
-    [get_bd_intf_pins smartconnect/M00_AXI] \
+## SmartConnect M01 <-> MIG AXI slave port 
+connect_bd_intf_net [get_bd_intf_pins smartconnect/M01_AXI] \
     [get_bd_intf_pins ddr4/C0_DDR4_S_AXI]
 
 
@@ -84,26 +81,22 @@ connect_bd_intf_net -intf_net smartconnect_M00_AXI \
 
 # sys_rst: reset di sistema, attivo alto, dominio pl_clk0.
 ## Deve venire da fuori: ui_clk lo genera il MIG stesso.
-connect_bd_net -net proc_sys_reset_peripheral_reset \
-    [get_bd_pins proc_sys_reset/peripheral_reset] \
+connect_bd_net [get_bd_pins proc_sys_reset/peripheral_reset] \
     [get_bd_pins ddr4/sys_rst]
  
 ## ui_clk: clock GENERATO dal MIG. E' il dominio della sua porta
 ## AXI; lo SmartConnect lo riceve su aclk1 per il CDC.
-connect_bd_net -net ddr4_c0_ddr4_ui_clk \
-    [get_bd_pins ddr4/c0_ddr4_ui_clk] \
+connect_bd_net [get_bd_pins ddr4/c0_ddr4_ui_clk] \
     [get_bd_pins smartconnect/aclk1]
  
 ## ui_clk_sync_rst -> invertitore
-connect_bd_net -net ddr4_c0_ddr4_ui_clk_sync_rst \
-    [get_bd_pins ddr4/c0_ddr4_ui_clk_sync_rst] \
+connect_bd_net [get_bd_pins ddr4/c0_ddr4_ui_clk_sync_rst] \
     [get_bd_pins ddr_rstn/Op1]
  
 ## Lo STESSO aresetn al MIG e a chi gli parla.
 ## E' questa la riga che impedisce allo SmartConnect di inoltrare
 ## transazioni mentre la DDR sta ancora calibrando.
-connect_bd_net -net ddr_rstn_Res \
-    [get_bd_pins ddr_rstn/Res] \
+connect_bd_net [get_bd_pins ddr_rstn/Res] \
     [get_bd_pins ddr4/c0_ddr4_aresetn] \
     [get_bd_pins smartconnect/aresetn]
 
@@ -112,12 +105,12 @@ connect_bd_net -net ddr_rstn_Res \
 ### Addresses 
 
 
-## VORTEX Address space 
+## M_AXI_VORTEX (Master AXI4 Interface of VORTEX SUBSYSTEM) Address space 
 
-# Mapping DDR in Vortex address space 
+# Mapping DDR
 
 assign_bd_address -offset $::env(MEM_BASE) -range $::env(MEM_SIZE) \
-    -target_address_space [get_bd_addr_spaces Vortex_top/m_axi_mem] \
+    -target_address_space [get_bd_addr_spaces vortex_subsystem/M_AXI_VORTEX] \
 		[get_bd_addr_segs ddr4/C0_DDR4_MEMORY_MAP/C0_DDR4_ADDRESS_BLOCK] -force
 
 

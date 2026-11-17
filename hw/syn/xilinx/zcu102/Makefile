@@ -94,7 +94,7 @@ $(KERNEL).bin:
 	$(MAKE) -C $(ROOT_DIR)/kernel clean
 	$(MAKE) -C $(ROOT_DIR)/kernel CONFIG_FLAGS="$(CONFIG_FLAGS)"
 	$(MAKE) -C $(ROOT_DIR)/tests/kernel/$(KERNEL) clean
-	$(MAKE) -C $(ROOT_DIR)/tests/kernel/$(KERNEL) CONFIG_FLAGS="$(CONFIG__FLAGS)"
+	$(MAKE) -C $(ROOT_DIR)/tests/kernel/$(KERNEL) CONFIG_FLAGS="$(CONFIG_FLAGS)"
 	cp $(ROOT_DIR)/tests/kernel/$(KERNEL)/$(KERNEL).bin $(KERNEL).bin
 
 kernel.bin.coe: $(KERNEL).bin
@@ -166,8 +166,11 @@ gen-sources: $(CONFIG)/sources.txt
 $(CONFIG)/sources.txt: $(CONFIG)/vortex_config.mk
 	$(SCRIPT_DIR)/gen_sources.sh $(CFLAGS) -P -C$(CONFIG)/src -O$(CONFIG)/sources.txt
 
+
+BUILD_TCL := import_ip.tcl pre_opt_hook.tcl soc_bd.tcl $(GLOBAL_MEM).tcl debug.tcl vortex_subsystem_bd.tcl 
+
 build: $(CONFIG)/done.dcp
-$(CONFIG)/done.dcp: $(CONFIG)/sources.txt import_ip.tcl project.tcl pre_opt_hook.tcl soc_bd.tcl ip_repo top.xdc $(GLOBAL_MEM).tcl debug.tcl 
+$(CONFIG)/done.dcp: $(CONFIG)/sources.txt project.tcl ip_repo top.xdc $(BUILD_TCL)
 	cd $(CONFIG) && \
 	MAX_JOBS=$(JOBS) FPU_IP=ip TOOL_DIR=$(SCRIPT_DIR) IP_REPO=$(BUILD_DIR)/ip_repo $(BD_ENV) $(VIVADO) -mode batch -source $(BUILD_DIR)/project.tcl -tclargs $(DEVICE) sources.txt .
 	echo done > $(CONFIG)/done.dcp
@@ -186,7 +189,7 @@ open: $(CONFIG)/done.dcp
 
 BD_DIR := bd
 
-bd: $(CONFIG)/sources.txt import_ip.tcl init_bd.tcl debug.tcl pre_opt_hook.tcl soc_bd.tcl ip_repo top.xdc $(GLOBAL_MEM).tcl
+bd: $(CONFIG)/sources.txt init_bd.tcl ip_repo top.xdc $(BUILD_TCL) 
 	mkdir -p $(BD_DIR)
 	cd $(BD_DIR) && \
 	$(BD_ENV) FPU_IP=ip TOOL_DIR=$(SCRIPT_DIR) IP_REPO=$(BUILD_DIR)/ip_repo \

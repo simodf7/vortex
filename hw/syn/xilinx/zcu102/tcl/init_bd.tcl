@@ -72,6 +72,13 @@ update_ip_catalog
 
 source $script_dir/import_ip.tcl
 
+#############
+# Create IP #
+#############
+source $script_dir/vortex_subsystem_bd.tcl
+
+
+
 ######################
 # Project properties #
 ######################

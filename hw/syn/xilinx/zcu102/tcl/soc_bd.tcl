@@ -3,31 +3,19 @@ set bd_name "design_1"
 create_bd_design $bd_name 
 
 
-######################
-# Import RTL modules #
-#####################
-create_bd_cell -type module -reference Vortex_top Vortex_top
-
 ############################
 # Import and configure IPs #
 ############################
 
-
-## DCR_VORTEX
-create_bd_cell -type ip -vlnv user.org:user:DCR_Vortex:2.0 DCR_Vortex 
-
-## MOD: VX CONSOLE
-create_bd_cell -type ip -vlnv user.org:user:vx_console:2.0 vx_console
-set_property CONFIG.CLK_FREQ_HZ {100000000} [get_bd_cells vx_console]
-
-
+## VORTEX SUBSYSTEM 
+create_bd_cell -type ip -vlnv user.org:user:vortex_subsystem:1.0 vortex_subsystem
 
 ## AXI SMARTCONNECT 
-# (As i can see Number of slave interfaces is automatically set) 
-# Number of Master Interfaces = 4 (M00 device memory, M01 GPIO,
-# M02 DCR, M03 vx_console). M00 viene collegato dal file di memoria.
 create_bd_cell -type ip -vlnv xilinx.com:ip:smartconnect:1.0 smartconnect
-set_property CONFIG.NUM_MI {4} [get_bd_cells smartconnect] 
+set_property -dict [list \
+    CONFIG.NUM_MI {3} \
+    CONFIG.NUM_SI {2} \
+] [get_bd_cells smartconnect] 
 
 
 ## PROCESSOR SYSTEM RESET 
@@ -433,86 +421,69 @@ Port;FD4A0000;FD4AFFFF;1|FPD;DPDMA;FD4C0000;FD4CFFFF;1|FPD;DDR_XMPU5_CFG;FD05000
 
 
 ###############
-# Connections #
+# Interface   #
 ############### 
 
-## Create Port 
+## Ports 
 create_bd_port -dir O uart_pl_tx
 
-## Create Interface Ports
+## Interface Ports
+
 # LED INTERFACE PORT
 create_bd_intf_port -mode Master -vlnv xilinx.com:interface:gpio_rtl:1.0 led_8bits
 
 
-### Interface Connections ### 
+###############
+# Connections #
+###############
+
 
 ## AXI GPIO TO LED  
-connect_bd_intf_net -intf_net axi_gpio_0_GPIO [get_bd_intf_ports led_8bits] [get_bd_intf_pins axi_gpio/GPIO]
+connect_bd_intf_net [get_bd_intf_ports led_8bits] [get_bd_intf_pins axi_gpio/GPIO]
 
 
 ## AXI SMARTCONTROLLER MASTER INTERFACE TO SLAVE
 
-# M01 TO AXI GPIO 
-connect_bd_intf_net -intf_net smartconnect_0_M01_AXI [get_bd_intf_pins axi_gpio/S_AXI] [get_bd_intf_pins smartconnect/M01_AXI]
 
-# M02 TO DCR_VORTEX
-connect_bd_intf_net -intf_net smartconnect_0_M02_AXI [get_bd_intf_pins smartconnect/M02_AXI] [get_bd_intf_pins DCR_Vortex/S00_AXI]
+# M00 TO S_AXI_VORTEX (AXI-Lite Slave) of VORTEX SUBSYSTEM 
+connect_bd_intf_net [get_bd_intf_pins vortex_subsystem/S_AXI_VORTEX] [get_bd_intf_pins smartconnect/M00_AXI]
 
-# ADD: M03 TO VX_CONSOLE
-connect_bd_intf_net -intf_net smartconnect_0_M03_AXI [get_bd_intf_pins smartconnect/M03_AXI] [get_bd_intf_pins vx_console/s_axi]
+
+# M02 TO AXI GPIO 
+connect_bd_intf_net [get_bd_intf_pins axi_gpio/S_AXI] [get_bd_intf_pins smartconnect/M02_AXI]
 
 
 ## AXI SMARTCONTROLLER MASTER TO SLAVE INTERFACES 
 
-# Vortex to S00  
-connect_bd_intf_net -intf_net Vortex_top_m_axi_mem [get_bd_intf_pins Vortex_top/m_axi_mem] [get_bd_intf_pins smartconnect/S00_AXI] 
+# M_AXI_VORTEX (AXI4 Master) of VORTEX SUBSYSTEM to S00  
+connect_bd_intf_net [get_bd_intf_pins vortex_subsystem/M_AXI_VORTEX] [get_bd_intf_pins smartconnect/S00_AXI] 
 
 # ZYNQ UltraPS (HPM0_FPD) to S01 
-connect_bd_intf_net -intf_net zynq_ultra_ps_e_0_M_AXI_HPM0_FPD [get_bd_intf_pins zynq_ultra_ps_e/M_AXI_HPM0_FPD] [get_bd_intf_pins smartconnect/S01_AXI]
-
+connect_bd_intf_net [get_bd_intf_pins zynq_ultra_ps_e/M_AXI_HPM0_FPD] [get_bd_intf_pins smartconnect/S01_AXI]
 
 
 ### Port connections ### 
 
-# DCR VORTEX RESET to VORTEX 
-connect_bd_net -net DCR_Vortex_0_dcr_vx_reset [get_bd_pins DCR_Vortex/dcr_vx_reset] \
-  [get_bd_pins Vortex_top/reset]
-
-
-# VORTEX BUSY SIGNAL to DCR VORTEX 
-connect_bd_net -net Vortex_top_busy  [get_bd_pins Vortex_top/busy] \
-  [get_bd_pins DCR_Vortex/busy]
-
-# DCR VORTEX -> VORTEX (bus di scrittura dei DCR)
-connect_bd_net -net dcr_wr_valid [get_bd_pins DCR_Vortex/dcr_wr_valid] [get_bd_pins Vortex_top/dcr_wr_valid]
-connect_bd_net -net dcr_wr_addr  [get_bd_pins DCR_Vortex/dcr_wr_addr]  [get_bd_pins Vortex_top/dcr_wr_addr]
-connect_bd_net -net dcr_wr_data  [get_bd_pins DCR_Vortex/dcr_wr_data]  [get_bd_pins Vortex_top/dcr_wr_data]
-
-
 # ZYNQ ULTRASCALE PL RESET to PROC SYS RESET EXTERNAL RESET INPUT   
-connect_bd_net -net zynq_ultra_ps_e_0_pl_resetn0  [get_bd_pins zynq_ultra_ps_e/pl_resetn0] \
+connect_bd_net [get_bd_pins zynq_ultra_ps_e/pl_resetn0] \
   [get_bd_pins proc_sys_reset/ext_reset_in]
   
 # PROC SYS RESET: reset attivo basso
-connect_bd_net -net Net [get_bd_pins proc_sys_reset/peripheral_aresetn] \
+connect_bd_net [get_bd_pins proc_sys_reset/peripheral_aresetn] \
   [get_bd_pins axi_gpio/s_axi_aresetn] \
-  [get_bd_pins DCR_Vortex/s00_axi_aresetn] \
-  [get_bd_pins vx_console/aresetn]
+  [get_bd_pins vortex_subsystem/aresetn]
 
 # ZYNQ PL CLOCK (pl_clk0) a tutto il dominio comune: Vortex, PSR,
 # SmartConnect, GPIO, DCR, porta HPM0 della PS, vx_console.
-connect_bd_net -net Net1  [get_bd_pins zynq_ultra_ps_e/pl_clk0] \
-  [get_bd_pins Vortex_top/clk] \
+connect_bd_net [get_bd_pins zynq_ultra_ps_e/pl_clk0] \
+  [get_bd_pins vortex_subsystem/aclk] \
   [get_bd_pins proc_sys_reset/slowest_sync_clk] \
   [get_bd_pins smartconnect/aclk] \
   [get_bd_pins axi_gpio/s_axi_aclk] \
-  [get_bd_pins DCR_Vortex/s00_axi_aclk] \
-  [get_bd_pins zynq_ultra_ps_e/maxihpm0_fpd_aclk] \
-  [get_bd_pins vx_console/aclk]
-
+  [get_bd_pins zynq_ultra_ps_e/maxihpm0_fpd_aclk]
 
 # VX_console port to external port 
-connect_bd_net [get_bd_ports uart_pl_tx] [get_bd_pins vx_console/uart_tx]
+connect_bd_net [get_bd_ports uart_pl_tx] [get_bd_pins vortex_subsystem/uart_tx]
 
 ###################
 # AXI Address Map #
@@ -521,24 +492,19 @@ connect_bd_net [get_bd_ports uart_pl_tx] [get_bd_pins vx_console/uart_tx]
 # ADD: we map only the peripherals independent from the specific device 
 # chosen as Vortex Global Memory 
 
-# Addresses depends on the specific device chosen (see bram.mk and pl_ddr.mk) 
+# Addresses depends on the specific device chosen
 
-## VORTEX address space  
-
-# Mapping DCR Vortex registers 
-assign_bd_address -offset $::env(DCR_ADDR) -range $::env(DCR_SIZE) \
-    -target_address_space [get_bd_addr_spaces Vortex_top/m_axi_mem] \
-    [get_bd_addr_segs DCR_Vortex/s00_axi/reg0] -force
+## M_AXI_VORTEX (master AXI4 of VORTEX SUBSYSTEM) address space  
 
 # Mapping AXI GPIO Registers
 assign_bd_address -offset $::env(GPIO_ADDR) -range $::env(GPIO_SIZE) \
-    -target_address_space [get_bd_addr_spaces Vortex_top/m_axi_mem] \
+    -target_address_space [get_bd_addr_spaces vortex_subsystem/M_AXI_VORTEX] \
     [get_bd_addr_segs axi_gpio/S_AXI/Reg] -force
 
 # Mapping VX CONSOLE 
-assign_bd_address -offset $::env(CONSOLE_ADDR) -range $::env(CONSOLE_SIZE) \
-    -target_address_space [get_bd_addr_spaces Vortex_top/m_axi_mem] \
-    [get_bd_addr_segs vx_console/s_axi/reg0] -force
+assign_bd_address -offset $::env(DCR_ADDR) -range $::env(DCR_SIZE) \
+    -target_address_space [get_bd_addr_spaces vortex_subsystem/M_AXI_VORTEX] \
+    [get_bd_addr_segs vortex_subsystem/S_AXI_VORTEX/Reg0] -force
 
 
 ## ZYNQ ULTRASCALE PS address space 
@@ -546,7 +512,7 @@ assign_bd_address -offset $::env(CONSOLE_ADDR) -range $::env(CONSOLE_SIZE) \
 # Mapping DCR Vortex registers
 assign_bd_address -offset $::env(DCR_ADDR) -range $::env(DCR_SIZE) \
     -target_address_space [get_bd_addr_spaces zynq_ultra_ps_e/Data] \
-    [get_bd_addr_segs DCR_Vortex/s00_axi/reg0] -force
+    [get_bd_addr_segs vortex_subsystem/S_AXI_VORTEX/Reg1] -force
 
 # Mapping AXI GPIO reg 
 assign_bd_address -offset $::env(GPIO_ADDR) -range $::env(GPIO_SIZE) \
@@ -557,7 +523,7 @@ assign_bd_address -offset $::env(GPIO_ADDR) -range $::env(GPIO_SIZE) \
 # Mapping VX CONSOLE 
 assign_bd_address -offset $::env(CONSOLE_ADDR) -range $::env(CONSOLE_SIZE) \
     -target_address_space [get_bd_addr_spaces zynq_ultra_ps_e/Data] \
-    [get_bd_addr_segs vx_console/s_axi/reg0] -force
+    [get_bd_addr_segs vortex_subsystem/S_AXI_VORTEX/Reg0] -force
 
 
 

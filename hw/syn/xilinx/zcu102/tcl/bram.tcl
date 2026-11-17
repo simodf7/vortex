@@ -33,18 +33,15 @@ set_property -dict [list \
 ### Interface connections 
 
 ## Controller -> BRAM, port A
-connect_bd_intf_net -intf_net axi_bram_ctrl_BRAM_PORTA \
-    [get_bd_intf_pins axi_bram_ctrl/BRAM_PORTA] \
+connect_bd_intf_net [get_bd_intf_pins axi_bram_ctrl/BRAM_PORTA] \
     [get_bd_intf_pins axi_bram_ctrl_bram/BRAM_PORTA]
 
 ## Controller -> BRAM, port B 
-connect_bd_intf_net -intf_net axi_bram_ctrl_BRAM_PORTB \
-    [get_bd_intf_pins axi_bram_ctrl/BRAM_PORTB] \
+connect_bd_intf_net [get_bd_intf_pins axi_bram_ctrl/BRAM_PORTB] \
     [get_bd_intf_pins axi_bram_ctrl_bram/BRAM_PORTB]
 
-## AXI SmartConnect M00 -> BRAM Controller 
-connect_bd_intf_net -intf_net smartconnect_M00_AXI \
-    [get_bd_intf_pins smartconnect/M00_AXI] \
+## AXI SmartConnect M01 -> BRAM Controller 
+connect_bd_intf_net [get_bd_intf_pins smartconnect/M01_AXI] \
     [get_bd_intf_pins axi_bram_ctrl/S_AXI]
 
 
@@ -63,11 +60,11 @@ connect_bd_net [get_bd_pins zynq_ultra_ps_e/pl_clk0] \
 
 ### Addresses 
 
-## VORTEX Address space 
+## M_AXI_VORTEX (Master AXI4 Interface of Vortex Subsystem) Address space 
 
-# Mapping BRAM in Vortex address space
+# Mapping BRAM
 assign_bd_address -offset $::env(MEM_BASE) -range $::env(MEM_SIZE)  \
-    -target_address_space [get_bd_addr_spaces Vortex_top/m_axi_mem] \
+    -target_address_space [get_bd_addr_spaces vortex_subsystem/M_AXI_VORTEX] \
     [get_bd_addr_segs axi_bram_ctrl/S_AXI/Mem0] -force
 
 ## ZYNQ ULTRASCALE PS Address Space  
