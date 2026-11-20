@@ -24,7 +24,8 @@ create_bd_cell -type ip -vlnv user.org:user:DCR_Vortex:2.0 DCR_Vortex
 
 ## MOD: VX CONSOLE
 create_bd_cell -type ip -vlnv user.org:user:vx_console:2.0 vx_console
-set_property CONFIG.CLK_FREQ_HZ {100000000} [get_bd_cells vx_console]
+if {![info exists clk_freq_hz]} { set clk_freq_hz 100000000 }
+set_property CONFIG.CLK_FREQ_HZ $clk_freq_hz [get_bd_cells vx_console]
 
 ## AXI SMARTCONNECT 
 create_bd_cell -type ip -vlnv xilinx.com:ip:smartconnect:1.0 smartconnect
@@ -37,6 +38,27 @@ set_property -dict [list \
 #############
 # Interface # 
 ############# 
+
+## INTERFACE PORTS
+
+# AXI4 Master Interface of Vortex Subsystem 
+create_bd_intf_port -mode Master -vlnv xilinx.com:interface:aximm_rtl:1.0 M_AXI_VORTEX
+set_property -dict [ list \
+   CONFIG.ADDR_WIDTH {64} \
+   CONFIG.DATA_WIDTH {512} \
+   CONFIG.PROTOCOL {AXI4} \
+] [get_bd_intf_port M_AXI_VORTEX]
+
+# AXI-Lite Slave Interface of Vortex Subsystem 
+create_bd_intf_port -mode Slave -vlnv xilinx.com:interface:aximm_rtl:1.0 S_AXI_VORTEX
+
+set_property -dict [ list \
+   CONFIG.ADDR_WIDTH {13} \
+   CONFIG.DATA_WIDTH {32} \
+   CONFIG.PROTOCOL {AXI4LITE} \
+] [get_bd_intf_port S_AXI_VORTEX]
+
+
 
 ## PORTS 
 
@@ -53,26 +75,6 @@ set_property CONFIG.POLARITY ACTIVE_LOW [get_bd_ports aresetn]
 
 # Uart TX pin 
 create_bd_port -dir O uart_tx
-
-## INTERFACE PORTS
-
-# AXI4 Master Interface of Vortex Subsystem 
-create_bd_intf_port -mode Master -vlnv xilinx.com:interface:aximm_rtl:1.0 M_AXI_VORTEX
-set_property -dict [ list \
-   CONFIG.ADDR_WIDTH {64} \
-   CONFIG.DATA_WIDTH {512} \
-   CONFIG.PROTOCOL {AXI4} \
-   CONFIG.ID_WIDTH {32} \
-] [get_bd_intf_port M_AXI_VORTEX]
-
-# AXI-Lite Slave Interface of Vortex Subsystem 
-create_bd_intf_port -mode Slave -vlnv xilinx.com:interface:aximm_rtl:1.0 S_AXI_VORTEX
-
-set_property -dict [ list \
-   CONFIG.ADDR_WIDTH {13} \
-   CONFIG.DATA_WIDTH {32} \
-   CONFIG.PROTOCOL {AXI4LITE} \
-] [get_bd_intf_port S_AXI_VORTEX]
 
 
 ###############
@@ -126,18 +128,27 @@ connect_bd_net [get_bd_ports uart_tx] [get_bd_pins vx_console/uart_tx]
 # Address Map #
 ###################
 
+if {[info exists ::env(IO_BASE)]} {
+    set CONSOLE_OFFS [expr {$::env(CONSOLE_ADDR) - $::env(IO_BASE)}]
+    set DCR_OFFS     [expr {$::env(DCR_ADDR)     - $::env(IO_BASE)}]
+    set CONSOLE_SIZE $::env(CONSOLE_SIZE)
+    set DCR_SIZE     $::env(DCR_SIZE)
+} else {
+    set CONSOLE_OFFS 0x0000
+    set DCR_OFFS     0x1000
+    set CONSOLE_SIZE 4K
+    set DCR_SIZE     4K
+}
+
+
 ## EXTERNAL MASTER (S_AXI_SLAVE)
 
-# Mapping VX CONSOLE 
-set CONSOLE_OFFS [expr {$::env(CONSOLE_ADDR) - $::env(IO_BASE)}]
-set DCR_OFFS [expr {$::env(DCR_ADDR) - $::env(IO_BASE)}]
-
-assign_bd_address -offset $CONSOLE_OFFS -range $::env(CONSOLE_SIZE) \
+assign_bd_address -offset $CONSOLE_OFFS -range $CONSOLE_SIZE \
     -target_address_space [get_bd_addr_spaces /S_AXI_VORTEX] \
     [get_bd_addr_segs vx_console/s_axi/reg0] -force
 
 # Mapping DCR Vortex registers 
-assign_bd_address -offset $DCR_OFFS -range $::env(DCR_SIZE) \
+assign_bd_address -offset $DCR_OFFS -range $DCR_SIZE \
     -target_address_space [get_bd_addr_spaces /S_AXI_VORTEX] \
     [get_bd_addr_segs DCR_Vortex/s00_axi/reg0] -force
 
@@ -157,9 +168,11 @@ generate_target all [get_files $BD_NAME.bd]
 
 # Package the Block Design as an IP
 
+if {![info exists ip_repo_out]} { set ip_repo_out ./ip_repo/vortex_sys } 
+
 set VENDOR      "user.org"
 set LIBRARY     "user"
-set IP_REPO     "./ip_repo/vortex_sys"
+set IP_REPO     ${ip_repo_out} 
 set VERSION     "1.0"
 set IP_NAME     "vortex_sys"
 
@@ -184,4 +197,3 @@ ipx::save_core [ipx::current_core]
 set_property ip_repo_paths [concat [get_property ip_repo_paths [current_project]] [file normalize $IP_REPO]] [current_project]
 
 update_ip_catalog
-create_ip -vlnv ${VENDOR}:${LIBRARY}:${BD_NAME}:${VERSION} -module_name ${IP_NAME}

@@ -13,6 +13,8 @@ VIVADO := $(XILINX_VIVADO)/bin/vivado
 VITIS := $(XILINX_VITIS)/bin/vitis
 XSCT := $(XILINX_VITIS)/bin/xsct
 BOOTGEN := $(XILINX_VIVADO)/bin/bootgen
+HW_SERVER := $(XILINX_VIVADO)/bin/hw_server
+
 
 SRC_DIR := $(VORTEX_HOME)/hw/syn/xilinx/zcu102
 RTL_DIR := $(VORTEX_HOME)/hw/rtl
@@ -26,9 +28,14 @@ KERNEL ?= blinky
 
 # ADD: Vortex Hardware configuration file 
 
-CONFIG ?= bram
+ifdef CONFIG_JSON
+CONFIG ?= $(basename $(notdir $(CONFIG_JSON)))
+endif
+CONFIG      ?= bram
+CONFIG_JSON ?= $(SRC_DIR)/configs/$(CONFIG).json
 
-$(CONFIG)/vortex_config.mk: $(SRC_DIR)/configs/$(CONFIG).json $(SRC_DIR)/gen_mk.py
+
+$(CONFIG)/vortex_config.mk: $(CONFIG_JSON) $(SRC_DIR)/gen_mk.py
 	mkdir -p $(CONFIG)
 	python3 $(SRC_DIR)/gen_mk.py $< -o $@
 		 
@@ -159,13 +166,22 @@ $(BOOT_IMAGE): $(CONFIG)/vortex_config.mk build_platform.tcl
 	$(BOOTGEN) -arch zynqmp -image $(SRC_DIR)/bare/boot.bif -o $(BOOT_IMAGE) -w on 
 	mv $(BOOT_IMAGE) bare
 
+XILINX_HW_SERVER_PORT ?= 3121
+XILINX_HW_SERVER_HOST ?= 127.0.0.1
+export XILINX_HW_SERVER_HOST XILINX_HW_SERVER_PORT
+
 run_jtag: $(BOOT_IMAGE) boot.tcl
+	$(HW_SERVER) -d -L- -stcp::$(XILINX_HW_SERVER_PORT)
 	$(XSCT) boot.tcl 
 	
-gen-sources: $(CONFIG)/sources.txt
-$(CONFIG)/sources.txt: $(CONFIG)/vortex_config.mk
-	$(SCRIPT_DIR)/gen_sources.sh $(CFLAGS) -P -C$(CONFIG)/src -O$(CONFIG)/sources.txt
 
+GEN_SRC_FLAGS ?= -P
+GEN_SRC_LIST ?= $(CONFIG)/sources.txt
+GEN_SRC_DIR ?= $(CONFIG)/src
+
+gen-sources: $(GEN_SRC_LIST)
+$(GEN_SRC_LIST): $(CONFIG)/vortex_config.mk
+	$(SCRIPT_DIR)/gen_sources.sh $(CFLAGS) $(GEN_SRC_FLAGS) -C$(GEN_SRC_DIR) -O$(GEN_SRC_LIST)
 
 BUILD_TCL := import_ip.tcl pre_opt_hook.tcl soc_bd.tcl $(GLOBAL_MEM).tcl debug.tcl vortex_subsystem_bd.tcl 
 
