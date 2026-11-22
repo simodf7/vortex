@@ -13,6 +13,8 @@ create_bd_design $BD_NAME
 # Import RTL modules #
 #####################
 create_bd_cell -type module -reference Vortex_top Vortex_top
+if {![info exists axi_id_width]} { set axi_id_width 32 }
+set_property CONFIG.C_M_AXI_GMEM_ID_WIDTH $axi_id_width [get_bd_cells Vortex_top]
 
 
 ############################
