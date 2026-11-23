@@ -24,12 +24,12 @@ SCRIPT_DIR := $(VORTEX_HOME)/hw/scripts
 BUILD_DIR := $(VORTEX_HOME)/build/hw/syn/xilinx/zcu102
 TCL_DIR := $(SRC_DIR)/tcl
 
-KERNEL ?= blinky
+KERNEL ?= vecadd
 
 # ADD: Vortex Hardware configuration file 
 
 ifdef CONFIG_JSON
-CONFIG ?= $(basename $(notdir $(CONFIG_JSON)))
+CONFIG ?= $(basename $(notdir $(CONFIG_JSON)))   # simplyv.json -> CONFIG=simplyv
 endif
 CONFIG      ?= bram
 CONFIG_JSON ?= $(SRC_DIR)/configs/$(CONFIG).json
@@ -145,22 +145,21 @@ nodriver: $(CONFIG)/vortex_config.mk
 	TEST=$(TEST) $(MAKE) -C $(ROOT_DIR)/tests/nodriver/$(KERNEL) CONFIG_FLAGS="$(CONFIG_FLAGS)" STARTUP_ADDR=$(STARTUP_ADDR) 
 	cp $(ROOT_DIR)/tests/nodriver/$(KERNEL)/$(KERNEL) nodriver/$(KERNEL) 
 	cp $(ROOT_DIR)/tests/nodriver/$(KERNEL)/kernel.dump nodriver/kernel.dump 
-	
+
+
+PLATFORM ?= zcu102_a53
+bare: $(CONFIG)/vortex_config.mk
+	$(MAKE) -C $(BUILD_DIR)/bare CONFIG=$(CONFIG) PLATFORM=$(PLATFORM) SW_CONFIGS="$(SW_CONFIGS)"
+	$(MAKE) -C $(ROOT_DIR)/kernel SW_CONFIGS="$(SW_CONFIGS)"
+	TEST=$(TEST) $(MAKE) -C $(ROOT_DIR)/runtime/bare PLATFORM=$(PLATFORM) SW_CONFIGS="$(SW_CONFIGS)" STARTUP_ADDR=$(STARTUP_ADDR)
+	TEST=$(TEST) $(MAKE) -C $(ROOT_DIR)/tests/bare/$(KERNEL) PLATFORM=$(PLATFORM) SW_CONFIGS="$(SW_CONFIGS)" STARTUP_ADDR=$(STARTUP_ADDR) 
+
 
 BOOT_IMAGE := BOOT.BIN
-bare: $(BOOT_IMAGE)
+run_sd: $(BOOT_IMAGE)
 
 $(BOOT_IMAGE): $(CONFIG)/vortex_config.mk build_platform.tcl
-	$(MAKE) -C $(BUILD_DIR)/bare clean
-	$(MAKE) -C $(ROOT_DIR)/kernel clean
-	$(MAKE) -C $(ROOT_DIR)/runtime/bare clean
-	CONFIG=$(CONFIG) $(XSCT) build_platform.tcl bare
-	rm -rf bare/tmp
-	$(MAKE) -C $(BUILD_DIR)/bare SW_CONFIGS="$(SW_CONFIGS)"
-	$(MAKE) -C $(ROOT_DIR)/tests/bare/$(KERNEL) clean 
-	$(MAKE) -C $(ROOT_DIR)/kernel SW_CONFIGS="$(SW_CONFIGS)"
-	TEST=$(TEST) $(MAKE) -C $(ROOT_DIR)/runtime/bare SW_CONFIGS="$(SW_CONFIGS)" STARTUP_ADDR=$(STARTUP_ADDR) 
-	TEST=$(TEST) $(MAKE) -C $(ROOT_DIR)/tests/bare/$(KERNEL) SW_CONFIGS="$(SW_CONFIGS)" STARTUP_ADDR=$(STARTUP_ADDR) 
+	$(MAKE) bare-sw PLATFORM=zcu102_a53
 	cp $(ROOT_DIR)/tests/bare/$(KERNEL)/$(KERNEL) bare/app.elf
 	cp $(ROOT_DIR)/tests/bare/$(KERNEL)/kernel.dump bare/kernel.dump
 	$(BOOTGEN) -arch zynqmp -image $(SRC_DIR)/bare/boot.bif -o $(BOOT_IMAGE) -w on 
@@ -175,13 +174,12 @@ run_jtag: $(BOOT_IMAGE) boot.tcl
 	$(XSCT) boot.tcl 
 	
 
-GEN_SRC_FLAGS ?= -P
-GEN_SRC_LIST ?= $(CONFIG)/sources.txt
-GEN_SRC_DIR ?= $(CONFIG)/src
+PREPROCESS ?= -P
 
-gen-sources: $(GEN_SRC_LIST)
-$(GEN_SRC_LIST): $(CONFIG)/vortex_config.mk
-	$(SCRIPT_DIR)/gen_sources.sh $(CFLAGS) $(GEN_SRC_FLAGS) -C$(GEN_SRC_DIR) -O$(GEN_SRC_LIST)
+gen-sources: $(CONFIG)/sources.txt
+$(CONFIG)/sources.txt: $(CONFIG)/vortex_config.mk
+	$(SCRIPT_DIR)/gen_sources.sh $(CFLAGS) $(PREPROCESS) -C$(CONFIG)/src -O$(CONFIG)/sources.txt
+
 
 BUILD_TCL := import_ip.tcl pre_opt_hook.tcl soc_bd.tcl $(GLOBAL_MEM).tcl debug.tcl vortex_subsystem_bd.tcl 
 
@@ -215,8 +213,11 @@ bd: $(CONFIG)/sources.txt init_bd.tcl ip_repo top.xdc $(BUILD_TCL)
 clean-bd:
 	rm -rf $(BD_DIR)
 
-clean-config:
-	rm -rf $(CONFIG) $(BD_DIR)
+clean-bare:
+	$(MAKE) -C $(BUILD_DIR)/bare clean PLATFORM=$(PLATFORM)
+	$(MAKE) -C $(ROOT_DIR)/kernel clean
+	$(MAKE) -C $(ROOT_DIR)/runtime/bare clean PLATFORM=$(PLATFORM)
+	$(MAKE) -C $(ROOT_DIR)/tests/bare/$(KERNEL) clean PLATFORM=$(PLATFORM)	
 
 # clean the common files only
 clean:
@@ -224,9 +225,9 @@ clean:
 	rm -f *.tcl *.xdc
 	rm -rf ip_repo
 	rm -rf .Xil vivado_*.log vivado_*.jou vivado_*.str
-	rm -rf bare host-dev nodriver
+	rm -rf host-dev nodriver
 
 # clean all 
-distclean: clean clean-host clean-bd
+distclean: clean clean-bd
 	rm -rf $(CONFIG)
 

@@ -5,8 +5,6 @@
 #include "xil_mmu.h"
 
 
-
-
 void outbyte(char c); 
 
 void uart_send_char(uint8_t ch){ 

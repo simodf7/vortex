@@ -1,24 +1,37 @@
 ROOT_DIR := $(realpath ../../../../..)
 include $(ROOT_DIR)/config.mk
 
-HAL_SRC_DIR   := $(VORTEX_HOME)/hw/syn/xilinx/zcu102/bare
+PLATFORM ?= zcu102_a53
+PLATFORM_DIR := $(VORTEX_HOME)/hw/syn/xilinx/zcu102/bare/platform/$(PLATFORM)
 HAL_LIB_DIR := $(ROOT_DIR)/hw/syn/xilinx/zcu102/bare
-TINYIO_DIR := $(HAL_SRC_DIR)/tinyIO
 
-CPU ?= a53
+.DEFAULT_GOAL := all
 
-include $(HAL_SRC_DIR)/$(CPU).mk
+include $(PLATFORM_DIR)/platform.mk
 
 vpath %.c $(HAL_SRC_DIR) $(TINYIO_DIR)/src
 
-OBJS := $(HAL_LIB_DIR)/hal_$(CPU).o $(HAL_LIB_DIR)/print.o
-LIB  := $(HAL_LIB_DIR)/libhal_$(CPU).a
+HAL_OBJ := $(HAL_LIB_DIR)/hal.o
+LIB  := $(HAL_LIB_DIR)/libhal.a
 
 CFLAGS += -std=c11 -O2 -Wall -Wextra -ffreestanding
-CPPFLAGS += -I$(TINYIO_DIR)/inc -I$(HAL_LIB_DIR)/include -MMD -MP
+CPPFLAGS += -I$(VORTEX_HOME)/hw/syn/xilinx/zcu102/bare -MMD -MP
+
+TARGETS := platform $(LIB) 
+
+# If plaform.mk defines a custom startup file
+ifdef STARTUP_FILE
+	STARTUP_OBJ := $(HAL_LIB_DIR)/startup.o
+	TARGETS += ${STARTUP_OBJ}
+	
+	$(STARTUP_OBJ): $(STARTUP_FILE)
+		$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
+endif 
+
+OBJS := ${HAL_OBJ} ${PLATFORM_OBJS}
 
 .PHONY: all clean
-all: $(LIB)
+all: $(TARGETS) 
 
 $(LIB): $(OBJS)
 	$(AR) rcs $@ $^
@@ -27,7 +40,9 @@ $(HAL_LIB_DIR)/%.o: %.c
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
 
 clean:
-	rm -rf *.elf *.a *.ld
-	rm -rf include
-	
+	rm -rf $(HAL_LIB_DIR)/include
+	rm -rf $(PLATFORM_FILES) $(LIB) $(OBJS) $(OBJS:.o=.d) 
+	rm -rf $(STARTUP_OBJ) 
+
 -include $(OBJS:.o=.d)
+

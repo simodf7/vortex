@@ -1,11 +1,12 @@
 # Host-side makefile 
-CPU ?= a53
+PLATFORM			?= zcu102_a53
+PLATFORM_DIR	?= $(VORTEX_HOME)/hw/syn/xilinx/zcu102/bare/platform/$(PLATFORM)
 
-include $(HAL_SRC_DIR)/$(CPU).mk
+include $(PLATFORM_DIR)/platform.mk
 
 CFLAGS += -std=c11 -Wall -Wextra -pedantic -Wfatal-errors -ffreestanding 
-CFLAGS += -I$(VORTEX_HOME)/runtime/include -I$(ROOT_DIR)/hw -I$(SW_COMMON_DIR) -I$(HAL_SRC_DIR)
 CFLAGS += $(CONFIGS)
+CPPFLAGS += -I$(VORTEX_HOME)/runtime/include -I$(ROOT_DIR)/hw -I$(SW_COMMON_DIR) -I$(HAL_INC_DIR)
 
 # Debugging
 ifdef DEBUG
@@ -17,10 +18,10 @@ endif
 HOST_OBJ := host.o
 
 $(HOST_OBJ): $(SRCS)
-	$(CC) $(CFLAGS) -c $^ -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) -c $^ -o $@
 
 .depend: $(SRCS)
-	$(CC) $(CFLAGS) -MM $^ > .depend;
+	$(CC) $(CPPFLAGS) $(CFLAGS) -MM $^ > .depend;
 
 clean-host:
 	rm -rf $(PROJECT) *.o *.log .depend
