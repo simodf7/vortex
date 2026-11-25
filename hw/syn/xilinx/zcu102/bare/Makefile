@@ -21,12 +21,12 @@ TARGETS := platform $(LIB)
 
 # If plaform.mk defines a custom startup file
 ifdef STARTUP_FILE
-	STARTUP_OBJ := $(HAL_LIB_DIR)/startup.o
-	TARGETS += ${STARTUP_OBJ}
-	
-	$(STARTUP_OBJ): $(STARTUP_FILE)
-		$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
-endif 
+  STARTUP_OBJ := $(HAL_LIB_DIR)/startup.o
+  TARGETS += $(STARTUP_OBJ)
+
+$(STARTUP_OBJ): $(STARTUP_FILE)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
+endif
 
 OBJS := ${HAL_OBJ} ${PLATFORM_OBJS}
 

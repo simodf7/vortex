@@ -1,6 +1,6 @@
 #include <stdint.h> 
 #include <stddef.h> 
-#include <stdio.h>  // Da capire come inserire solo la printf
+#include "hal.h"
 
 // Already defined HEAP_OFFS and HEAP_SIZE
 #define HEAP_LAST (HEAP_OFFS + HEAP_SIZE) 
@@ -16,7 +16,7 @@ static int alloc(size_t size, uint64_t *addr){
     size_t asize = align_up(size);
     int exit_code = 0;  
     if (asize > HEAP_LAST - current_addr){
-      printf("[ALLOCATOR]: Error. Aligned Size %ld requested exceed Heap (free space %ld)\n", asize, HEAP_LAST - current_addr);  
+      hal_printf("[ALLOCATOR]: Error. Aligned Size %ld requested exceed Heap (free space %ld)\n", asize, HEAP_LAST - current_addr);  
       exit_code = -1; 
     } 
     else {

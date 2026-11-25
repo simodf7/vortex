@@ -29,8 +29,10 @@ KERNEL ?= vecadd
 # ADD: Vortex Hardware configuration file 
 
 ifdef CONFIG_JSON
-CONFIG ?= $(basename $(notdir $(CONFIG_JSON)))   # simplyv.json -> CONFIG=simplyv
+# simplyv.json -> CONFIG=simplyv
+CONFIG ?= $(strip $(basename $(notdir $(CONFIG_JSON))))
 endif
+
 CONFIG      ?= bram
 CONFIG_JSON ?= $(SRC_DIR)/configs/$(CONFIG).json
 
@@ -149,6 +151,7 @@ nodriver: $(CONFIG)/vortex_config.mk
 
 PLATFORM ?= zcu102_a53
 bare: $(CONFIG)/vortex_config.mk
+	$(MAKE) -C $(ROOT_DIR)/hw config
 	$(MAKE) -C $(BUILD_DIR)/bare CONFIG=$(CONFIG) PLATFORM=$(PLATFORM) SW_CONFIGS="$(SW_CONFIGS)"
 	$(MAKE) -C $(ROOT_DIR)/kernel SW_CONFIGS="$(SW_CONFIGS)"
 	TEST=$(TEST) $(MAKE) -C $(ROOT_DIR)/runtime/bare PLATFORM=$(PLATFORM) SW_CONFIGS="$(SW_CONFIGS)" STARTUP_ADDR=$(STARTUP_ADDR)
