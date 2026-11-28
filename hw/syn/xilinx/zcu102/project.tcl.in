@@ -106,7 +106,7 @@ proc run_setup {} {
   ##############
   # Create IP  #
   #############
-  source $script_dir/vortex_subsystem.tcl    
+  source $script_dir/vortex_subsystem_bd.tcl    
 
 
   ######################
